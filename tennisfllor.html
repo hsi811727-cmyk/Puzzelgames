@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎾 SLIDE TENNIS · CONTROLLED SPEED</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            overflow: hidden;
+            background: #0a2a1a;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            touch-action: none;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            pointer-events: none;
+        }
+        #scoreboard {
+            background: rgba(0, 40, 20, 0.9);
+            border: 3px solid #ffaa00;
+            border-radius: 50px;
+            padding: 12px 40px;
+            display: inline-block;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        #score {
+            font-size: 56px;
+            font-weight: 900;
+            color: white;
+            text-shadow: 2px 2px 0 #ffaa00;
+            letter-spacing: 8px;
+        }
+        #score span {
+            color: #ffaa00;
+            text-shadow: 2px 2px 0 white;
+        }
+        #message {
+            margin-top: 15px;
+            font-size: 18px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 25px;
+            border-radius: 40px;
+            display: inline-block;
+            border: 2px solid #ffaa00;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+        #speed-control {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 1px solid #ffaa00;
+            z-index: 100;
+            pointer-events: none;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+        #touch-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            background: transparent;
+            cursor: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="scoreboard">
+            <div id="score"><span id="ps">0</span> · <span id="as">0</span></div>
+        </div>
+        <div id="message">👇 SLIDE TO MOVE · TAP TO SERVE 👇</div>
+    </div>
+    <div id="speed-control">🐢 SLOW MOTION MODE · 50% SPEED</div>
+    <div id="touch-panel"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        (function() {
+            // --- SETUP ---
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a4a3a);
+            
+            const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 7, 20);
+            
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // --- LIGHTING ---
+            const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambient);
+            
+            const mainLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
+            mainLight.position.set(5, 12, 8);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+
+            // --- COURT ---
+            const courtGroup = new THREE.Group();
+            
+            // Base ground
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(20, 30),
+                new THREE.MeshStandardMaterial({ color: 0x1a5a3a })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = 0;
+            ground.receiveShadow = true;
+            courtGroup.add(ground);
+            
+            // Tennis court
+            const court = new THREE.Mesh(
+                new THREE.PlaneGeometry(12, 24),
+                new THREE.MeshStandardMaterial({ color: 0x8b6b4d })
+            );
+            court.rotation.x = -Math.PI / 2;
+            court.position.y = 0.01;
+            court.receiveShadow = true;
+            courtGroup.add(court);
+            
+            // White lines
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const linePositions = [
+                [[-6, 0.02, -12], [6, 0.02, -12]],
+                [[-6, 0.02, 12], [6, 0.02, 12]],
+                [[-6, 0.02, -12], [-6, 0.02, 12]],
+                [[6, 0.02, -12], [6, 0.02, 12]],
+                [[-6, 0.02, -4], [6, 0.02, -4]],
+                [[-6, 0.02, 4], [6, 0.02, 4]],
+                [[0, 0.02, -4], [0, 0.02, 4]]
+            ];
+            
+            linePositions.forEach(points => {
+                const line = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(p[0], p[1], p[2]))),
+                    lineMat
+                );
+                courtGroup.add(line);
+            });
+            
+            scene.add(courtGroup);
+
+            // Net
+            const net = new THREE.Mesh(
+                new THREE.BoxGeometry(12.2, 1.0, 0.1),
+                new THREE.MeshStandardMaterial({ color: 0xcccccc, wireframe: true })
+            );
+            net.position.set(0, 0.5, 0);
+            net.castShadow = true;
+            scene.add(net);
+
+            // --- PLAYERS ---
+            function createPlayer(color) {
+                const group = new THREE.Group();
+                
+                const body = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, 1.8),
+                    new THREE.MeshStandardMaterial({ color: color })
+                );
+                body.position.y = 1;
+                body.castShadow = true;
+                body.receiveShadow = true;
+                group.add(body);
+                
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3),
+                    new THREE.MeshStandardMaterial({ color: 0xffccaa })
+                );
+                head.position.y = 2;
+                head.castShadow = true;
+                group.add(head);
+                
+                return group;
+            }
+
+            const player = createPlayer(0x3366ff);
+            player.position.set(0, 0, 11);
+            scene.add(player);
+
+            const ai = createPlayer(0xff4433);
+            ai.position.set(0, 0, -11);
+            scene.add(ai);
+
+            // --- BALL (high visibility) ---
+            const ballMat = new THREE.MeshStandardMaterial({ 
+                color: 0xff5500,
+                emissive: 0x442200
+            });
+            const ball = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24), ballMat);
+            ball.castShadow = true;
+            ball.receiveShadow = true;
+            scene.add(ball);
+
+            // Add highlight
+            const highlight = new THREE.Mesh(
+                new THREE.SphereGeometry(0.05),
+                new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            highlight.position.set(0.1, 0.1, 0.1);
+            ball.add(highlight);
+
+            // --- GAME STATE (SLOWER SPEEDS) ---
+            let ballVel = new THREE.Vector3();
+            let active = false;
+            let pScore = 0, aScore = 0;
+            let targetX = 0;
+            
+            // SLIDE FACTOR - smooth movement
+            const SLIDE_FACTOR = 0.08; // Slower, sliding motion
+            const BALL_SPEED_FACTOR = 0.6; // 60% of original speed
+            const GRAVITY = 0.005; // Reduced gravity
+            const HIT_POWER = 1.02; // Lower bounce power
+
+            // --- INPUT ---
+            const panel = document.getElementById('touch-panel');
+            
+            panel.addEventListener('pointermove', (e) => {
+                const rect = panel.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                targetX = x * 5.5;
+                targetX = Math.max(-5.5, Math.min(5.5, targetX));
+            });
+
+            panel.addEventListener('pointerdown', () => {
+                if (!active) {
+                    active = true;
+                    // SLOWER SERVE
+                    ballVel.set(
+                        (Math.random() - 0.5) * 0.15, // Less random movement
+                        0.3 * BALL_SPEED_FACTOR,      // Lower serve
+                        -0.5 * BALL_SPEED_FACTOR       // Slower forward speed
+                    );
+                }
+            });
+
+            // --- SCORING ---
+            function scorePoint(winner) {
+                if (!active) return;
+                active = false;
+                if (winner === 'p') pScore++;
+                else aScore++;
+                
+                document.getElementById('ps').innerText = pScore;
+                document.getElementById('as').innerText = aScore;
+                
+                ball.position.set(player.position.x, 1.5, 10);
+                ballVel.set(0, 0, 0);
+            }
+
+            // --- ANIMATION ---
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // SMOOTH SLIDING MOVEMENT
+                player.position.x += (targetX - player.position.x) * SLIDE_FACTOR;
+                player.position.x = Math.max(-5.5, Math.min(5.5, player.position.x));
+
+                if (active) {
+                    // AI movement (also slower)
+                    ai.position.x += (ball.position.x - ai.position.x) * 0.05;
+                    ai.position.x = Math.max(-5.5, Math.min(5.5, ai.position.x));
+
+                    // SLOWER PHYSICS
+                    ballVel.y -= GRAVITY;
+                    
+                    ball.position.x += ballVel.x;
+                    ball.position.y += ballVel.y;
+                    ball.position.z += ballVel.z;
+
+                    // Ground bounce (softer)
+                    if (ball.position.y < 0.2) {
+                        ball.position.y = 0.2;
+                        ballVel.y = Math.abs(ballVel.y) * 0.6;
+                    }
+
+                    // Player hit (reduced power)
+                    if (ball.position.z > 10.5 && ball.position.z < 11.5 && 
+                        Math.abs(ball.position.x - player.position.x) < 1.2 &&
+                        ballVel.z > 0) {
+                        
+                        ballVel.z = -ballVel.z * HIT_POWER;
+                        ballVel.x += (ball.position.x - player.position.x) * 0.15;
+                        ballVel.y = 0.2;
+                    }
+
+                    // AI hit (reduced power)
+                    if (ball.position.z < -10.5 && ball.position.z > -11.5 && 
+                        Math.abs(ball.position.x - ai.position.x) < 1.2 &&
+                        ballVel.z < 0) {
+                        
+                        ballVel.z = -ballVel.z * HIT_POWER;
+                        ballVel.x += (ball.position.x - ai.position.x) * 0.1;
+                        ballVel.y = 0.2;
+                    }
+
+                    // Boundaries
+                    if (ball.position.z > 15) scorePoint('a');
+                    if (ball.position.z < -15) scorePoint('p');
+                    
+                    if (Math.abs(ball.position.x) > 7) {
+                        ballVel.x = -ballVel.x * 0.3; // Softer wall bounce
+                        ball.position.x = Math.sign(ball.position.x) * 6.9;
+                    }
+                } else {
+                    ball.position.set(player.position.x, 1.5, 10);
+                }
+
+                // Camera
+                camera.position.x = player.position.x * 0.3;
+                camera.position.y = 7;
+                camera.position.z = 20;
+                camera.lookAt(ball.position.x * 0.3, 1, 0);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            ball.position.set(0, 1.5, 10);
+        })();
+    </script>
+</body>
+</html>

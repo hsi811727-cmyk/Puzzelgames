@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tic Tac Toe - Working Final</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            user-select: none;
+        }
+        body {
+            background: #1a2e3f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: min(98vw, 400px);
+            background: #2c3e50;
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 1.5rem;
+            background: #34495e;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: #34495e;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            aspect-ratio: 1;
+            background: #1e2b38;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+        .cell.X { color: #e74c3c; }
+        .cell.O { color: #3498db; }
+        button {
+            width: 100%;
+            background: #e67e22;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <span>❌ TIC TAC TOE</span>
+        <span id="turn">X</span>
+    </div>
+    <div class="board" id="board"></div>
+    <button id="reset">⟲ NEW GAME</button>
+</div>
+
+<script>
+(function() {
+    let board = ['', '', '', '', '', '', '', '', ''];
+    let currentPlayer = 'X';
+    let gameOver = false;
+    
+    const winPatterns = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+    ];
+    
+    function checkWinner() {
+        for(let pattern of winPatterns) {
+            let [a,b,c] = pattern;
+            if(board[a] && board[a] === board[b] && board[a] === board[c]) {
+                return board[a];
+            }
+        }
+        if(board.every(cell => cell !== '')) return 'draw';
+        return null;
+    }
+    
+    function handleClick(index) {
+        if(gameOver) return;
+        if(board[index] !== '') return;
+        
+        board[index] = currentPlayer;
+        
+        let winner = checkWinner();
+        if(winner) {
+            gameOver = true;
+            if(winner === 'draw') {
+                document.getElementById('turn').textContent = 'Draw!';
+            } else {
+                document.getElementById('turn').textContent = `${winner} Wins!`;
+            }
+        } else {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            document.getElementById('turn').textContent = currentPlayer;
+        }
+        
+        render();
+    }
+    
+    function reset() {
+        board = ['', '', '', '', '', '', '', '', ''];
+        currentPlayer = 'X';
+        gameOver = false;
+        document.getElementById('turn').textContent = 'X';
+        render();
+    }
+    
+    function render() {
+        let boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        
+        for(let i=0; i<9; i++) {
+            let cell = document.createElement('div');
+            cell.className = `cell ${board[i]}`;
+            cell.textContent = board[i];
+            cell.onclick = () => handleClick(i);
+            boardEl.appendChild(cell);
+        }
+    }
+    
+    document.getElementById('reset').onclick = reset;
+    reset();
+})();
+</script>
+</body>
+</html>

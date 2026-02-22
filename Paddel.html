@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NEON REBOUND - TWO PLAYER PONG</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: 'Courier New', monospace;
+        }
+        canvas { 
+            border: 2px solid #0ff; 
+            width: 100%; 
+            max-width: 480px; 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
+        }
+        .info { 
+            color: #0ff; 
+            margin-top: 10px; 
+            text-align: center;
+            font-size: 16px;
+            text-shadow: 0 0 5px #0ff;
+        }
+        .scores {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 480px;
+            margin: 10px auto;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .left-score {
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+        }
+        .right-score {
+            color: #f0f;
+            text-shadow: 0 0 10px #f0f;
+        }
+        button {
+            background: #000;
+            color: #0ff;
+            border: 2px solid #0ff;
+            padding: 10px 20px;
+            font-size: 18px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px #0ff;
+            box-shadow: 0 0 10px #0ff;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0ff;
+            color: #000;
+        }
+        .controls {
+            color: #fff;
+            font-size: 12px;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align:center">
+        <div class="scores">
+            <span class="left-score" id="leftScore">0</span>
+            <span style="color:#fff;">NEON REBOUND</span>
+            <span class="right-score" id="rightScore">0</span>
+        </div>
+        <canvas id="gameCanvas" width="480" height="640"></canvas>
+        <div class="controls">
+            LEFT: W/S or drag left side | RIGHT: ↑/↓ or drag right side
+        </div>
+        <button onclick="startGame()">NEW GAME</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // GAME STATE
+        let gameActive = false;
+        let leftScore = 0;
+        let rightScore = 0;
+        let winner = null;
+        
+        // PADDLES
+        let leftPaddleY = 270;
+        let rightPaddleY = 270;
+        const paddleHeight = 100;
+        const paddleWidth = 15;
+        
+        // BALL
+        let ballX = 240;
+        let ballY = 320;
+        let ballSpeedX = 5;
+        let ballSpeedY = 3;
+        let ballSize = 10;
+        
+        // POWER-UP
+        let powerUpActive = false;
+        let powerUpX = 0;
+        let powerUpY = 0;
+        let powerUpTimer = 0;
+        let leftPaddlePowered = false;
+        let rightPaddlePowered = false;
+        let powerUpSpawnTimer = 0;
+        
+        // TOUCH CONTROLS
+        let leftTouchActive = false;
+        let rightTouchActive = false;
+        let lastLeftTouchY = 0;
+        let lastRightTouchY = 0;
+        
+        // KEYBOARD CONTROLS
+        let wPressed = false;
+        let sPressed = false;
+        let upPressed = false;
+        let downPressed = false;
+        
+        // INITIALIZE
+        function resetGame() {
+            leftScore = 0;
+            rightScore = 0;
+            winner = null;
+            leftPaddleY = 270;
+            rightPaddleY = 270;
+            ballX = 240;
+            ballY = 320;
+            ballSpeedX = 5 * (Math.random() > 0.5 ? 1 : -1);
+            ballSpeedY = 3 * (Math.random() > 0.5 ? 1 : -1);
+            powerUpActive = false;
+            leftPaddlePowered = false;
+            rightPaddlePowered = false;
+            powerUpSpawnTimer = 0;
+            document.getElementById('leftScore').innerText = '0';
+            document.getElementById('rightScore').innerText = '0';
+        }
+        
+        // TOUCH CONTROLS
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            let scaleY = canvas.height / rect.height;
+            let touchY = (touch.clientY - rect.top) * scaleY;
+            let touchX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            
+            if(touchX < canvas.width/2) {
+                leftTouchActive = true;
+                lastLeftTouchY = touchY;
+            } else {
+                rightTouchActive = true;
+                lastRightTouchY = touchY;
+            }
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            let scaleY = canvas.height / rect.height;
+            let touchY = (touch.clientY - rect.top) * scaleY;
+            let touchX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            
+            if(touchX < canvas.width/2 && leftTouchActive) {
+                leftPaddleY = touchY - paddleHeight/2;
+                lastLeftTouchY = touchY;
+            } else if(touchX >= canvas.width/2 && rightTouchActive) {
+                rightPaddleY = touchY - paddleHeight/2;
+                lastRightTouchY = touchY;
+            }
+            
+            // Keep paddles in bounds
+            leftPaddleY = Math.max(0, Math.min(canvas.height - paddleHeight, leftPaddleY));
+            rightPaddleY = Math.max(0, Math.min(canvas.height - paddleHeight, rightPaddleY));
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            leftTouchActive = false;
+            rightTouchActive = false;
+        });
+        
+        // KEYBOARD CONTROLS
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'w' || e.key === 'W') {
+                wPressed = true;
+            }
+            if(e.key === 's' || e.key === 'S') {
+                sPressed = true;
+            }
+            if(e.key === 'ArrowUp') {
+                upPressed = true;
+                e.preventDefault();
+            }
+            if(e.key === 'ArrowDown') {
+                downPressed = true;
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if(e.key === 'w' || e.key === 'W') {
+                wPressed = false;
+            }
+            if(e.key === 's' || e.key === 'S') {
+                sPressed = false;
+            }
+            if(e.key === 'ArrowUp') {
+                upPressed = false;
+            }
+            if(e.key === 'ArrowDown') {
+                downPressed = false;
+            }
+        });
+        
+        // DRAW FUNCTIONS
+        function drawPaddles() {
+            // Left paddle
+            if(leftPaddlePowered) {
+                ctx.fillStyle = '#ff0';
+                ctx.shadowColor = '#ff0';
+            } else {
+                ctx.fillStyle = '#0ff';
+                ctx.shadowColor = '#0ff';
+            }
+            ctx.shadowBlur = 15;
+            ctx.fillRect(20, leftPaddleY, paddleWidth, paddleHeight);
+            
+            // Right paddle
+            if(rightPaddlePowered) {
+                ctx.fillStyle = '#ff0';
+                ctx.shadowColor = '#ff0';
+            } else {
+                ctx.fillStyle = '#f0f';
+                ctx.shadowColor = '#f0f';
+            }
+            ctx.fillRect(canvas.width - 20 - paddleWidth, rightPaddleY, paddleWidth, paddleHeight);
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 15;
+            ctx.fillRect(ballX - ballSize/2, ballY - ballSize/2, ballSize, ballSize);
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawPowerUp() {
+            if(powerUpActive) {
+                ctx.fillStyle = '#ff0';
+                ctx.shadowColor = '#ff0';
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.arc(powerUpX, powerUpY, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Inner glow
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(powerUpX, powerUpY, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawScanlines() {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            for(let i = 0; i < canvas.height; i+=4) {
+                ctx.fillRect(0, i, canvas.width, 1);
+            }
+        }
+        
+        function drawWinner() {
+            if(winner) {
+                ctx.font = 'bold 32px "Courier New", monospace';
+                ctx.fillStyle = winner === 'left' ? '#0ff' : '#f0f';
+                ctx.shadowColor = winner === 'left' ? '#0ff' : '#f0f';
+                ctx.shadowBlur = 20;
+                ctx.textAlign = 'center';
+                ctx.fillText(winner === 'left' ? 'LEFT WINS!' : 'RIGHT WINS!', canvas.width/2, canvas.height/2);
+                ctx.shadowBlur = 0;
+                ctx.font = '16px "Courier New", monospace';
+                ctx.fillStyle = '#fff';
+                ctx.fillText('TOUCH SCREEN TO PLAY AGAIN', canvas.width/2, canvas.height/2 + 50);
+            }
+        }
+        
+        // GAME LOGIC
+        function update() {
+            if(!gameActive || winner) return;
+            
+            // KEYBOARD MOVEMENT
+            if(wPressed) {
+                leftPaddleY -= 8;
+            }
+            if(sPressed) {
+                leftPaddleY += 8;
+            }
+            if(upPressed) {
+                rightPaddleY -= 8;
+            }
+            if(downPressed) {
+                rightPaddleY += 8;
+            }
+            
+            // Keep paddles in bounds
+            leftPaddleY = Math.max(0, Math.min(canvas.height - paddleHeight, leftPaddleY));
+            rightPaddleY = Math.max(0, Math.min(canvas.height - paddleHeight, rightPaddleY));
+            
+            // BALL MOVEMENT
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+            
+            // TOP/BOTTOM WALL COLLISION
+            if(ballY - ballSize/2 < 0 || ballY + ballSize/2 > canvas.height) {
+                ballSpeedY = -ballSpeedY;
+            }
+            
+            // LEFT PADDLE COLLISION
+            if(ballX - ballSize/2 < 20 + paddleWidth && 
+               ballX + ballSize/2 > 20 &&
+               ballY > leftPaddleY && 
+               ballY < leftPaddleY + paddleHeight) {
+                
+                ballSpeedX = Math.abs(ballSpeedX); // Send to right
+                
+                // Angle based on where it hit paddle
+                let hitPos = (ballY - leftPaddleY) / paddleHeight - 0.5;
+                ballSpeedY = hitPos * 8;
+                
+                // Speed up
+                ballSpeedX *= 1.05;
+                ballSpeedY *= 1.05;
+                
+                // Cap speed
+                ballSpeedX = Math.min(12, Math.max(-12, ballSpeedX));
+                ballSpeedY = Math.min(8, Math.max(-8, ballSpeedY));
+                
+                // Power-up effect
+                if(leftPaddlePowered) {
+                    ballSpeedX *= 1.2;
+                }
+            }
+            
+            // RIGHT PADDLE COLLISION
+            if(ballX + ballSize/2 > canvas.width - 20 - paddleWidth && 
+               ballX - ballSize/2 < canvas.width - 20 &&
+               ballY > rightPaddleY && 
+               ballY < rightPaddleY + paddleHeight) {
+                
+                ballSpeedX = -Math.abs(ballSpeedX); // Send to left
+                
+                // Angle based on where it hit paddle
+                let hitPos = (ballY - rightPaddleY) / paddleHeight - 0.5;
+                ballSpeedY = hitPos * 8;
+                
+                // Speed up
+                ballSpeedX *= 1.05;
+                ballSpeedY *= 1.05;
+                
+                // Cap speed
+                ballSpeedX = Math.min(12, Math.max(-12, ballSpeedX));
+                ballSpeedY = Math.min(8, Math.max(-8, ballSpeedY));
+                
+                // Power-up effect
+                if(rightPaddlePowered) {
+                    ballSpeedX *= 1.2;
+                }
+            }
+            
+            // SCORING
+            if(ballX < 0) {
+                rightScore++;
+                document.getElementById('rightScore').innerText = rightScore;
+                resetBall();
+                
+                if(rightScore >= 10) {
+                    winner = 'right';
+                }
+            }
+            
+            if(ballX > canvas.width) {
+                leftScore++;
+                document.getElementById('leftScore').innerText = leftScore;
+                resetBall();
+                
+                if(leftScore >= 10) {
+                    winner = 'left';
+                }
+            }
+            
+            // POWER-UP SPAWNING
+            powerUpSpawnTimer++;
+            if(!powerUpActive && powerUpSpawnTimer > 600) { // Every 10 seconds at 60fps
+                powerUpActive = true;
+                powerUpX = Math.random() * (canvas.width - 40) + 20;
+                powerUpY = Math.random() * (canvas.height - 40) + 20;
+                powerUpTimer = 0;
+            }
+            
+            // POWER-UP COLLISION
+            if(powerUpActive) {
+                powerUpTimer++;
+                
+                // Check if ball hits power-up
+                let dx = ballX - powerUpX;
+                let dy = ballY - powerUpY;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if(distance < ballSize + 8) {
+                    powerUpActive = false;
+                    
+                    // Determine which player gets power-up based on ball direction
+                    if(ballSpeedX > 0) {
+                        rightPaddlePowered = true;
+                    } else {
+                        leftPaddlePowered = true;
+                    }
+                    
+                    // Power-up expires after 5 seconds
+                    setTimeout(() => {
+                        leftPaddlePowered = false;
+                        rightPaddlePowered = false;
+                    }, 5000);
+                }
+                
+                // Power-up expires after 8 seconds
+                if(powerUpTimer > 480) {
+                    powerUpActive = false;
+                }
+            }
+        }
+        
+        function resetBall() {
+            ballX = canvas.width/2;
+            ballY = canvas.height/2;
+            ballSpeedX = 5 * (Math.random() > 0.5 ? 1 : -1);
+            ballSpeedY = 3 * (Math.random() > 0.5 ? 1 : -1);
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawCenterLine();
+            drawPaddles();
+            drawBall();
+            drawPowerUp();
+            drawScanlines();
+            drawWinner();
+            
+            requestAnimationFrame(draw);
+        }
+        
+        function gameLoop() {
+            update();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame() {
+            gameActive = true;
+            resetGame();
+        }
+        
+        // Touch to restart when game over
+        canvas.addEventListener('touchstart', (e) => {
+            if(winner) {
+                startGame();
+            }
+        }, { passive: false });
+        
+        // Start the loops
+        draw();
+        gameLoop();
+    </script>
+</body>
+</html>

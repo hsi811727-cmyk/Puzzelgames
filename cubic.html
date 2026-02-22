@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🎲 SOLVABLE CUBIC MATCH</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #121212; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; bottom: 30px; width: 100%; text-align: center; display: flex; justify-content: center; gap: 15px; }
+        .btn { padding: 12px 25px; background: #3498db; border: none; border-radius: 30px; color: white; cursor: pointer; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn:hover { background: #2980b9; transform: scale(1.1); }
+        #status { position: absolute; top: 20px; width: 100%; text-align: center; color: gold; font-size: 1.5rem; font-weight: bold; text-shadow: 0 0 10px black; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="status">🧩 ROTATE SLICES TO SOLVE</div>
+    <div id="ui">
+        <button class="btn" id="shuffle" style="background: #e67e22;">🔀 SHUFFLE CUBE</button>
+        <button class="btn" id="rot-x">ROTATE X</button>
+        <button class="btn" id="rot-y">ROTATE Y</button>
+        <button class="btn" id="rot-z">ROTATE Z</button>
+        <button class="btn" style="background:#e74c3c" onclick="location.reload()">⟲ RESET</button>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.128.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+        const COLORS = [0xffffff, 0xd50032, 0x009b48, 0x0046ad, 0xff5800, 0xffd500]; 
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        camera.position.set(6, 6, 6);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        const cubeGroup = new THREE.Group();
+        scene.add(cubeGroup);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+        let cubes = [];
+        let isAnimating = false;
+
+        function initCube() {
+            cubes.forEach(c => cubeGroup.remove(c));
+            cubes = [];
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    for (let z = -1; z <= 1; z++) {
+                        const geo = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+                        const mats = COLORS.map(c => new THREE.MeshStandardMaterial({ color: c }));
+                        const mesh = new THREE.Mesh(geo, mats);
+                        mesh.position.set(x, y, z);
+                        cubeGroup.add(mesh);
+                        cubes.push(mesh);
+                    }
+                }
+            }
+            // Auto-Shuffle on start to provide a challenge
+            setTimeout(shuffleCube, 500);
+        }
+
+        function rotateSlice(axis, layer, angle = Math.PI / 2, instant = false) {
+            if (isAnimating && !instant) return;
+            isAnimating = true;
+
+            const targetCubes = cubes.filter(c => Math.round(c.position[axis]) === layer);
+            const pivot = new THREE.Group();
+            scene.add(pivot);
+            targetCubes.forEach(c => pivot.add(c));
+
+            if (instant) {
+                pivot.rotation[axis] = angle;
+                finalizeRotation(pivot, targetCubes, axis);
+            } else {
+                let current = 0;
+                const step = 0.15;
+                const animateRotate = () => {
+                    pivot.rotation[axis] += step;
+                    current += step;
+                    if (current < angle) {
+                        requestAnimationFrame(animateRotate);
+                    } else {
+                        pivot.rotation[axis] = angle;
+                        finalizeRotation(pivot, targetCubes, axis);
+                    }
+                };
+                animateRotate();
+            }
+        }
+
+        function finalizeRotation(pivot, targetCubes, axis) {
+            targetCubes.forEach(c => {
+                c.applyQuaternion(pivot.quaternion);
+                c.position.applyQuaternion(pivot.quaternion);
+                c.position.x = Math.round(c.position.x);
+                c.position.y = Math.round(c.position.y);
+                c.position.z = Math.round(c.position.z);
+                cubeGroup.add(c);
+            });
+            scene.remove(pivot);
+            isAnimating = false;
+        }
+
+        function shuffleCube() {
+            const axes = ['x', 'y', 'z'];
+            const layers = [-1, 0, 1];
+            let count = 0;
+            const scrambleInterval = setInterval(() => {
+                const axis = axes[Math.floor(Math.random() * 3)];
+                const layer = layers[Math.floor(Math.random() * 3)];
+                rotateSlice(axis, layer, Math.PI / 2, true);
+                count++;
+                if (count > 25) clearInterval(scrambleInterval);
+            }, 40);
+        }
+
+        document.getElementById('shuffle').onclick = shuffleCube;
+        document.getElementById('rot-x').onclick = () => rotateSlice('x', 1);
+        document.getElementById('rot-y').onclick = () => rotateSlice('y', 1);
+        document.getElementById('rot-z').onclick = () => rotateSlice('z', 1);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        initCube();
+        animate();
+    </script>
+</body>
+</html>

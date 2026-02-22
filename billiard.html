@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎱 8-BALL POOL • CUE POINTS CORRECT DIRECTION</title>
+    <style>
+        * {
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #1a3a2a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            padding: 10px;
+        }
+        .game-wrapper {
+            background: #2d4d3a;
+            padding: 15px 15px 20px;
+            border-radius: 40px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.8), inset 0 2px 5px #cfb587;
+            border: 3px solid #755e3a;
+            max-width: 100%;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 25px;
+            background: #0f8020;
+            background: radial-gradient(circle at 30% 30%, #239f30, #0a621a);
+            border: 12px solid #7b5e38;
+            box-shadow: 0 0 0 4px #4a3a20, 0 25px 40px black;
+            cursor: crosshair;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+        }
+        .control-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding: 8px 15px;
+            background: #31633e;
+            border-radius: 50px;
+            border: 3px solid #eec27e;
+            color: #ffecb3;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #2b4d1a;
+            box-shadow: inset 0 2px 8px #1e3d15;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: #f0b73e;
+            border: none;
+            color: #203d12;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #7e5922, 0 8px 12px black;
+            transition: 0.05s;
+            border: 2px solid #ffda85;
+            min-width: 100px;
+            touch-action: manipulation;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #7e5922, 0 5px 12px black;
+        }
+        button:disabled {
+            opacity: 0.5;
+            transform: translateY(0);
+            box-shadow: 0 4px 0 #7e5922, 0 5px 10px black;
+            pointer-events: none;
+        }
+        .status {
+            background: #1e4729;
+            padding: 8px 20px;
+            border-radius: 50px;
+            border: 2px solid #cba762;
+            color: #ffd966;
+            font-size: 22px;
+            min-width: 180px;
+            text-align: center;
+        }
+        #shootBtn {
+            background: #ff7b2b;
+            box-shadow: 0 5px 0 #9b4a1a, 0 8px 12px black;
+            border-color: #ffb27a;
+        }
+        .mobile-note {
+            color: #ffd966;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div class="control-panel">
+        <span>🎱 8-BALL</span>
+        <span class="status" id="gameStatus">⚪ TAP WHITE BALL</span>
+        <div class="button-group">
+            <button id="shootBtn" disabled>🎯 SHOOT</button>
+            <button id="resetBtn">⟲ RACK</button>
+        </div>
+    </div>
+    <div class="mobile-note">👇 CUE POINTS WHERE YOU AIM • BALL SHOOTS THAT DIRECTION</div>
+</div>
+
+<script>
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('gameStatus');
+    const shootBtn = document.getElementById('shootBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // ---------- CONSTANTS ----------
+    const BALL_RADIUS = 12;
+    const TABLE_W = 800, TABLE_H = 400;
+    const LEFT = BALL_RADIUS;
+    const RIGHT = TABLE_W - BALL_RADIUS;
+    const TOP = BALL_RADIUS;
+    const BOTTOM = TABLE_H - BALL_RADIUS;
+    
+    // Pocket positions
+    const POCKETS = [
+        { x: 0, y: 0, radius: 25 },
+        { x: 400, y: 0, radius: 25 },
+        { x: 800, y: 0, radius: 25 },
+        { x: 0, y: 400, radius: 25 },
+        { x: 400, y: 400, radius: 25 },
+        { x: 800, y: 400, radius: 25 }
+    ];
+
+    // Ball colors
+    const COLORS = [
+        '#ffffff', // 0 cue
+        '#ffff00', // 1 yellow
+        '#4169e1', // 2 blue
+        '#ff3333', // 3 red
+        '#8a2be2', // 4 purple
+        '#ffa500', // 5 orange
+        '#2e8b57', // 6 green
+        '#8b4513', // 7 brown
+        '#222222', // 8 black
+        '#ffff99', // 9 stripe yellow
+        '#99ccff', // 10 stripe blue
+        '#ff9999', // 11 stripe red
+        '#cc99ff', // 12 stripe purple
+        '#ffcc99', // 13 stripe orange
+        '#99ff99', // 14 stripe green
+        '#d2b48c'  // 15 stripe brown
+    ];
+
+    // ---------- GAME STATE ----------
+    let balls = [];
+    let cueBall = null;
+    let aimingState = {
+        active: false,
+        aimX: 0,
+        aimY: 0,
+        power: 0
+    };
+
+    // ---------- RACK BALLS ----------
+    function rackBalls() {
+        balls = [];
+        
+        // CUE BALL
+        const cue = {
+            x: 250, y: 200,
+            vx: 0, vy: 0,
+            r: BALL_RADIUS,
+            color: COLORS[0],
+            number: 0,
+            stripe: false,
+            inPocket: false
+        };
+        balls.push(cue);
+        cueBall = cue;
+
+        // Rack other balls
+        const rackX = 620, centerY = 200;
+        let index = 1;
+
+        // Row 1
+        balls.push({ x: rackX, y: centerY, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        
+        // Row 2
+        balls.push({ x: rackX+18, y: centerY-12, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        balls.push({ x: rackX+18, y: centerY+12, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        
+        // Row 3 (8 ball)
+        balls.push({ x: rackX+36, y: centerY-24, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[8], number:8, stripe:false, inPocket: false });
+        balls.push({ x: rackX+36, y: centerY, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        balls.push({ x: rackX+36, y: centerY+24, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        
+        // Row 4
+        balls.push({ x: rackX+54, y: centerY-36, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        balls.push({ x: rackX+54, y: centerY-12, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        balls.push({ x: rackX+54, y: centerY+12, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        balls.push({ x: rackX+54, y: centerY+36, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:false, inPocket: false }); index++;
+        
+        // Row 5 (stripes)
+        for (let i=0; i<5; i++) {
+            balls.push({ x: rackX+72, y: centerY-48 + i*24, vx:0, vy:0, r:BALL_RADIUS, color:COLORS[index], number:index, stripe:true, inPocket: false }); index++;
+        }
+
+        // Separate balls
+        for (let iter=0; iter<40; iter++) {
+            resolveCollisions();
+        }
+        
+        // Reset aiming state
+        aimingState.active = false;
+        shootBtn.disabled = true;
+        statusEl.innerText = '⚪ TAP WHITE BALL';
+    }
+
+    // ---------- COLLISION PHYSICS ----------
+    function resolveCollisions() {
+        // Ball-ball collisions
+        for (let i = 0; i < balls.length; i++) {
+            for (let j = i+1; j < balls.length; j++) {
+                const b1 = balls[i];
+                const b2 = balls[j];
+                
+                if (b1.inPocket || b2.inPocket) continue;
+                
+                const dx = b2.x - b1.x;
+                const dy = b2.y - b1.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const minDist = b1.r + b2.r;
+
+                if (dist < minDist && dist > 0.001) {
+                    const overlap = (minDist - dist) / 2;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    b1.x -= nx * overlap;
+                    b1.y -= ny * overlap;
+                    b2.x += nx * overlap;
+                    b2.y += ny * overlap;
+
+                    const vrelx = b2.vx - b1.vx;
+                    const vrely = b2.vy - b1.vy;
+                    const velAlong = vrelx * nx + vrely * ny;
+                    if (velAlong > 0) continue;
+
+                    const e = 0.92;
+                    const impulse = (2 * velAlong) / 2;
+                    b1.vx += impulse * nx * e;
+                    b1.vy += impulse * ny * e;
+                    b2.vx -= impulse * nx * e;
+                    b2.vy -= impulse * ny * e;
+                }
+            }
+        }
+    }
+
+    // ---------- CHECK POCKETS ----------
+    function checkPockets() {
+        for (let i = balls.length - 1; i >= 0; i--) {
+            const ball = balls[i];
+            if (ball.inPocket) continue;
+            
+            for (let pocket of POCKETS) {
+                const dist = Math.hypot(ball.x - pocket.x, ball.y - pocket.y);
+                if (dist < pocket.radius) {
+                    ball.inPocket = true;
+                    ball.vx = 0;
+                    ball.vy = 0;
+                    
+                    if (ball.number === 0) {
+                        ball.x = 250;
+                        ball.y = 200;
+                        ball.inPocket = false;
+                        statusEl.innerText = '⚪ CUE BALL RESPAWNED';
+                    }
+                    break;
+                }
+            }
+        }
+        
+        balls = balls.filter(ball => {
+            if (ball.inPocket && ball.number !== 0) {
+                return false;
+            }
+            return true;
+        });
+        
+        cueBall = balls.find(b => b.number === 0);
+    }
+
+    // ---------- WALL COLLISIONS ----------
+    function handleWalls() {
+        for (let b of balls) {
+            if (b.inPocket) continue;
+            
+            if (b.x < LEFT) { 
+                b.x = LEFT; 
+                b.vx *= -0.9; 
+            }
+            if (b.x > RIGHT) { 
+                b.x = RIGHT; 
+                b.vx *= -0.9; 
+            }
+            if (b.y < TOP) { 
+                b.y = TOP; 
+                b.vy *= -0.9; 
+            }
+            if (b.y > BOTTOM) { 
+                b.y = BOTTOM; 
+                b.vy *= -0.9; 
+            }
+        }
+    }
+
+    // ---------- TOUCH CONTROL ----------
+    function getTouchPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        return {
+            x: (touch.clientX - rect.left) * (TABLE_W / rect.width),
+            y: (touch.clientY - rect.top) * (TABLE_H / rect.height)
+        };
+    }
+
+    // Touch start - aim
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const pos = getTouchPos(e);
+        
+        if (cueBall && !aimingState.active && !cueBall.inPocket) {
+            const dist = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
+            if (dist < BALL_RADIUS + 20 && Math.abs(cueBall.vx) < 0.1 && Math.abs(cueBall.vy) < 0.1) {
+                aimingState.active = true;
+                // Set aim point IN THE DIRECTION YOU WANT TO SHOOT
+                aimingState.aimX = pos.x;
+                aimingState.aimY = pos.y;
+                shootBtn.disabled = false;
+                statusEl.innerText = '🎯 AIMING (point where to shoot)';
+            }
+        }
+    }, { passive: false });
+
+    // Touch move - adjust aim
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (aimingState.active) {
+            const pos = getTouchPos(e);
+            aimingState.aimX = Math.min(RIGHT, Math.max(LEFT, pos.x));
+            aimingState.aimY = Math.min(BOTTOM, Math.max(TOP, pos.y));
+            
+            // Calculate power based on distance from ball to aim point
+            const dx = aimingState.aimX - cueBall.x;
+            const dy = aimingState.aimY - cueBall.y;
+            const dist = Math.hypot(dx, dy);
+            aimingState.power = Math.min(100, Math.round((dist / 140) * 100));
+        }
+    }, { passive: false });
+
+    // Mouse events for desktop
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (TABLE_W / rect.width);
+        const my = (e.clientY - rect.top) * (TABLE_H / rect.height);
+
+        if (cueBall && !aimingState.active && !cueBall.inPocket) {
+            const dist = Math.hypot(mx - cueBall.x, my - cueBall.y);
+            if (dist < BALL_RADIUS + 10 && Math.abs(cueBall.vx) < 0.1 && Math.abs(cueBall.vy) < 0.1) {
+                aimingState.active = true;
+                aimingState.aimX = mx;
+                aimingState.aimY = my;
+                shootBtn.disabled = false;
+                statusEl.innerText = '🎯 AIMING (point where to shoot)';
+                e.preventDefault();
+            }
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (TABLE_W / rect.width);
+        const my = (e.clientY - rect.top) * (TABLE_H / rect.height);
+        
+        if (aimingState.active) {
+            aimingState.aimX = Math.min(RIGHT, Math.max(LEFT, mx));
+            aimingState.aimY = Math.min(BOTTOM, Math.max(TOP, my));
+            
+            const dx = aimingState.aimX - cueBall.x;
+            const dy = aimingState.aimY - cueBall.y;
+            const dist = Math.hypot(dx, dy);
+            aimingState.power = Math.min(100, Math.round((dist / 140) * 100));
+        }
+    });
+
+    // ---------- SHOOT BUTTON (CORRECT DIRECTION - CUE POINTS WHERE BALL GOES) ----------
+    shootBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (aimingState.active && cueBall && !cueBall.inPocket) {
+            // Direction: FROM ball TO aim point (ball moves where cue points)
+            const dx = aimingState.aimX - cueBall.x;
+            const dy = aimingState.aimY - cueBall.y;
+            const len = Math.hypot(dx, dy);
+
+            if (len > 5) {
+                // Power based on distance to aim point
+                const power = Math.min(len * 0.18, 11);
+                cueBall.vx = (dx / len) * power;
+                cueBall.vy = (dy / len) * power;
+                
+                aimingState.active = false;
+                shootBtn.disabled = true;
+                statusEl.innerText = '⚡ BALLS ROLLING';
+                console.log('Shot direction:', dx/len, dy/len);
+            } else {
+                aimingState.active = false;
+                shootBtn.disabled = true;
+                statusEl.innerText = '⚪ TAP WHITE BALL';
+            }
+        }
+    });
+
+    // Reset button
+    resetBtn.addEventListener('click', () => {
+        rackBalls();
+        aimingState.active = false;
+        shootBtn.disabled = true;
+    });
+
+    // ---------- GAME LOOP ----------
+    function gameLoop() {
+        if (!aimingState.active) {
+            // Friction
+            for (let b of balls) {
+                if (!b.inPocket) {
+                    b.vx *= 0.985;
+                    b.vy *= 0.985;
+                    if (Math.abs(b.vx) < 0.002) b.vx = 0;
+                    if (Math.abs(b.vy) < 0.002) b.vy = 0;
+                }
+            }
+
+            // Move balls
+            for (let b of balls) {
+                if (!b.inPocket) {
+                    b.x += b.vx;
+                    b.y += b.vy;
+                }
+            }
+
+            handleWalls();
+            checkPockets();
+
+            for (let iter = 0; iter < 6; iter++) {
+                resolveCollisions();
+            }
+
+            let anyMoving = balls.some(b => !b.inPocket && (Math.abs(b.vx) > 0.01 || Math.abs(b.vy) > 0.01));
+            if (!anyMoving && !aimingState.active && statusEl.innerText !== '⚪ TAP WHITE BALL' && cueBall && !cueBall.inPocket) {
+                statusEl.innerText = '⚪ TAP WHITE BALL';
+                shootBtn.disabled = true;
+            }
+        }
+
+        drawCanvas();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ---------- DRAWING ----------
+    function drawCanvas() {
+        ctx.clearRect(0, 0, TABLE_W, TABLE_H);
+
+        // Felt
+        ctx.fillStyle = '#1b7a2b';
+        ctx.fillRect(0, 0, TABLE_W, TABLE_H);
+
+        // Draw pockets
+        ctx.fillStyle = '#1a1a1a';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#000000';
+        POCKETS.forEach(pocket => {
+            ctx.beginPath();
+            ctx.arc(pocket.x, pocket.y, 22, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(pocket.x, pocket.y, 16, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#1a1a1a';
+        });
+        ctx.shadowBlur = 0;
+
+        // Draw balls
+        for (let b of balls) {
+            if (b.inPocket) continue;
+            
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.r, 0, 2*Math.PI);
+
+            if (b.stripe) {
+                ctx.fillStyle = '#f5f5f5';
+                ctx.fill();
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.ellipse(b.x, b.y, b.r*0.9, b.r*0.35, 0, 0, 2*Math.PI);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = b.color;
+                ctx.fill();
+            }
+
+            if (b.number !== 0) {
+                ctx.fillStyle = b.number === 8 ? '#ffffff' : '#111111';
+                ctx.font = 'bold 13px "Arial", sans-serif';
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 4;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(b.number, b.x, b.y);
+            } else {
+                ctx.beginPath();
+                ctx.arc(b.x-4, b.y-4, 4, 0, 2*Math.PI);
+                ctx.fillStyle = '#ff3333';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(b.x-6, b.y-6, 2, 0, 2*Math.PI);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+        }
+        ctx.shadowBlur = 0;
+
+        // ---------- DRAW AIMING CUE (POINTS IN SHOOTING DIRECTION) ----------
+        if (aimingState.active && cueBall && !cueBall.inPocket) {
+            // Calculate angle FROM ball TO aim point (where cue points)
+            const angle = Math.atan2(aimingState.aimY - cueBall.y, aimingState.aimX - cueBall.x);
+            const distance = Math.hypot(aimingState.aimX - cueBall.x, aimingState.aimY - cueBall.y);
+            
+            // Cue stick extends BEHIND the ball in the opposite direction of aim
+            // This makes it look like you're pulling back to shoot forward
+            const stickLength = Math.min(distance + 40, 240);
+
+            ctx.save();
+            ctx.translate(cueBall.x, cueBall.y);
+            
+            // Cue points TOWARD aim direction (where ball will go)
+            ctx.rotate(angle);
+            
+            // Draw cue BEHIND the ball (negative direction)
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#fffacd';
+
+            // Wooden cue (drawn behind the ball)
+            ctx.fillStyle = '#c79a5e';
+            ctx.fillRect(-stickLength - 10, -9, stickLength, 18);
+            ctx.fillStyle = '#a56f3a';
+            ctx.fillRect(-stickLength - 5, -6, stickLength - 10, 12);
+            
+            // Ferrule (white tip at the end)
+            ctx.fillStyle = '#f5efdc';
+            ctx.fillRect(-25, -7, 12, 14);
+            
+            // Tip (black)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-35, -5, 12, 10);
+            
+            // Gold accent
+            ctx.fillStyle = '#ffd700';
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(-stickLength, -3, stickLength - 20, 6);
+            ctx.globalAlpha = 1.0;
+
+            ctx.restore();
+
+            // Aim line (shows where ball will go)
+            ctx.beginPath();
+            ctx.setLineDash([8, 10]);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#fffacd';
+            ctx.moveTo(cueBall.x, cueBall.y);
+            ctx.lineTo(aimingState.aimX, aimingState.aimY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Arrow showing direction
+            const arrowX = cueBall.x + (aimingState.aimX - cueBall.x) * 0.7;
+            const arrowY = cueBall.y + (aimingState.aimY - cueBall.y) * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowY);
+            ctx.lineTo(arrowX - 15, arrowY - 8);
+            ctx.lineTo(arrowX - 15, arrowY + 8);
+            ctx.closePath();
+            ctx.fillStyle = '#fffacd';
+            ctx.globalAlpha = 0.8;
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Power meter
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.fillStyle = '#ffffaa';
+            ctx.shadowColor = '#222';
+            ctx.shadowBlur = 12;
+            ctx.fillText(`⚡ ${aimingState.power}%`, 600, 55);
+            ctx.shadowBlur = 0;
+            
+            // Instruction
+            ctx.font = 'bold 18px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('CUE POINTS THIS WAY →', 480, 90);
+        }
+
+        // Rail border
+        ctx.strokeStyle = '#6b4f2a';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(6, 6, 788, 388);
+    }
+
+    // Start
+    rackBalls();
+    gameLoop();
+})();
+</script>
+</body>
+</html>

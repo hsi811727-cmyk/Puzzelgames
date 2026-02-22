@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔍 Word Search - FIXED</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: #1a2e3f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: min(98vw, 450px);
+            background: #2c3e50;
+            border-radius: 30px;
+            padding: 20px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            margin-bottom: 20px;
+            background: #1e2b38;
+            padding: 15px 20px;
+            border-radius: 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .found-count {
+            color: #f1c40f;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            aspect-ratio: 1/1;
+            background: #34495e;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.3rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1e2b38;
+            transition: 0.1s;
+        }
+        .cell.selected {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+        .cell.found {
+            background: #27ae60;
+            cursor: default;
+        }
+        .words {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .word-item {
+            background: #34495e;
+            color: white;
+            padding: 12px;
+            border-radius: 25px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #1e2b38;
+        }
+        .word-item.found {
+            background: #27ae60;
+            text-decoration: line-through;
+            opacity: 0.8;
+        }
+        .restart-btn {
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 16px;
+            font-size: 1.3rem;
+            width: 100%;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #b85e0f;
+            transition: 0.05s;
+        }
+        .restart-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #b85e0f;
+        }
+        .instructions {
+            color: #a0b8cc;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .message {
+            color: #f1c40f;
+            text-align: center;
+            margin: 10px 0;
+            font-size: 1rem;
+            min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <span>🔍 WORD SEARCH</span>
+        <span class="found-count" id="foundCount">0 / 8</span>
+    </div>
+    
+    <div class="grid" id="grid"></div>
+    <div class="words" id="wordsList"></div>
+    <div class="message" id="message"></div>
+    
+    <button class="restart-btn" id="restartBtn">⟲ NEW PUZZLE</button>
+    <div class="instructions">Click letters to spell words (3-5 letters)</div>
+</div>
+
+<script>
+(function() {
+    // Word list
+    const wordList = ['CAT', 'DOG', 'FISH', 'BIRD', 'STAR', 'MOON', 'SUN', 'TREE'];
+    
+    // Game state
+    let grid = [];
+    let selectedCells = [];
+    let foundWords = [];
+    let currentWord = '';
+    let message = '';
+    
+    const gridSize = 8;
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    
+    function initGrid() {
+        // Create empty grid
+        grid = [];
+        for(let r = 0; r < gridSize; r++) {
+            grid[r] = [];
+            for(let c = 0; c < gridSize; c++) {
+                grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+            }
+        }
+        
+        // Place words in grid
+        wordList.forEach(word => {
+            placeWord(word);
+        });
+        
+        selectedCells = [];
+        foundWords = [];
+        currentWord = '';
+        message = '';
+        document.getElementById('message').innerHTML = '';
+        render();
+    }
+    
+    function placeWord(word) {
+        let placed = false;
+        let attempts = 0;
+        const maxAttempts = 500;
+        
+        while(!placed && attempts < maxAttempts) {
+            // Random direction: 0=right, 1=down, 2=down-right, 3=down-left
+            let dir = Math.floor(Math.random() * 4);
+            let row = Math.floor(Math.random() * gridSize);
+            let col = Math.floor(Math.random() * gridSize);
+            
+            let dr = 0, dc = 0;
+            switch(dir) {
+                case 0: dr = 0; dc = 1; break;  // right
+                case 1: dr = 1; dc = 0; break;  // down
+                case 2: dr = 1; dc = 1; break;  // down-right
+                case 3: dr = 1; dc = -1; break; // down-left
+            }
+            
+            // Check if word fits
+            let endRow = row + dr * (word.length - 1);
+            let endCol = col + dc * (word.length - 1);
+            
+            if(endRow < 0 || endRow >= gridSize || endCol < 0 || endCol >= gridSize) {
+                attempts++;
+                continue;
+            }
+            
+            // Check if space is available
+            let canPlace = true;
+            for(let i = 0; i < word.length; i++) {
+                let r = row + dr * i;
+                let c = col + dc * i;
+                if(grid[r][c] !== word[i] && grid[r][c] !== '') {
+                    canPlace = false;
+                    break;
+                }
+            }
+            
+            if(canPlace) {
+                for(let i = 0; i < word.length; i++) {
+                    let r = row + dr * i;
+                    let c = col + dc * i;
+                    grid[r][c] = word[i];
+                }
+                placed = true;
+            }
+            attempts++;
+        }
+    }
+    
+    function checkWord() {
+        if(selectedCells.length < 3) return false;
+        
+        // Build word from selected cells
+        let word = '';
+        selectedCells.forEach(cell => {
+            word += grid[cell.r][cell.c];
+        });
+        
+        // Check if word is in list
+        if(wordList.includes(word) && !foundWords.includes(word)) {
+            foundWords.push(word);
+            message = `🎉 Found: ${word}!`;
+            selectedCells = [];
+            return true;
+        } else {
+            message = `❌ Not a word: ${word}`;
+            return false;
+        }
+    }
+    
+    function render() {
+        // Render grid
+        let gridHtml = '';
+        for(let r = 0; r < gridSize; r++) {
+            for(let c = 0; c < gridSize; c++) {
+                let isSelected = selectedCells.some(cell => cell.r === r && cell.c === c);
+                let isFound = false;
+                
+                // Check if this cell is part of a found word
+                // (Simplified - in a real game you'd track found word positions)
+                
+                gridHtml += `<div class="cell ${isSelected ? 'selected' : ''}" data-r="${r}" data-c="${c}">${grid[r][c]}</div>`;
+            }
+        }
+        document.getElementById('grid').innerHTML = gridHtml;
+        
+        // Render word list
+        let wordsHtml = '';
+        wordList.forEach(word => {
+            wordsHtml += `<div class="word-item ${foundWords.includes(word) ? 'found' : ''}">${word}</div>`;
+        });
+        document.getElementById('wordsList').innerHTML = wordsHtml;
+        
+        // Update found count
+        document.getElementById('foundCount').innerHTML = `${foundWords.length} / ${wordList.length}`;
+        
+        // Show message
+        document.getElementById('message').innerHTML = message;
+        
+        // Check win condition
+        if(foundWords.length === wordList.length) {
+            document.getElementById('message').innerHTML = '🎉🎉 CONGRATULATIONS! YOU FOUND ALL WORDS! 🎉🎉';
+        }
+        
+        // Add click handlers to cells
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.onclick = () => {
+                let r = parseInt(cell.dataset.r);
+                let c = parseInt(cell.dataset.c);
+                
+                // Check if cell is already selected
+                let index = selectedCells.findIndex(cell => cell.r === r && cell.c === c);
+                
+                if(index !== -1) {
+                    // Deselect this cell and all after it
+                    selectedCells = selectedCells.slice(0, index);
+                } else {
+                    // Add to selection
+                    selectedCells.push({r, c});
+                    
+                    // If we have 5 cells, auto-check
+                    if(selectedCells.length >= 5) {
+                        checkWord();
+                    }
+                }
+                
+                // Update current word display
+                if(selectedCells.length > 0) {
+                    let word = '';
+                    selectedCells.forEach(cell => {
+                        word += grid[cell.r][cell.c];
+                    });
+                    message = `Selected: ${word}`;
+                } else {
+                    message = '';
+                }
+                
+                render();
+            };
+        });
+    }
+    
+    // Check button (optional - can be used instead of auto-check)
+    document.getElementById('restartBtn').onclick = () => {
+        initGrid();
+    };
+    
+    document.getElementById('restartBtn').ontouchstart = (e) => {
+        e.preventDefault();
+        initGrid();
+    };
+    
+    // Initialize
+    initGrid();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bubble Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #1a2e3f, #2c3e50);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-container {
+            width: min(98vw, 400px);
+            background: #34495e;
+            border-radius: 30px;
+            padding: 20px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+        }
+        canvas {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #2c3e50;
+            border-radius: 20px;
+            display: block;
+            margin-bottom: 20px;
+            touch-action: none;
+        }
+        .next-bubble {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .bubble-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #b85e0f;
+            transition: 0.05s;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #b85e0f;
+        }
+        .score {
+            text-align: center;
+            color: white;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="score" id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="next-bubble">
+        <span>Next:</span>
+        <div class="bubble-preview" id="nextPreview"></div>
+    </div>
+    <div class="controls">
+        <button id="shootBtn">🎯 SHOOT</button>
+        <button id="resetBtn">⟲ NEW GAME</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'];
+    let bubbles = [];
+    let currentBubble = { x: 200, y: 350, color: 0 };
+    let nextColor = 1;
+    let score = 0;
+    let gameOver = false;
+    
+    function init() {
+        bubbles = [];
+        for(let i=0; i<5; i++) {
+            for(let j=0; j<8; j++) {
+                if(Math.random() > 0.3) {
+                    bubbles.push({
+                        x: 50 + j * 40,
+                        y: 50 + i * 40,
+                        color: Math.floor(Math.random() * colors.length),
+                        radius: 18
+                    });
+                }
+            }
+        }
+        currentBubble = { x: 200, y: 350, color: Math.floor(Math.random() * colors.length) };
+        nextColor = Math.floor(Math.random() * colors.length);
+        score = 0;
+        gameOver = false;
+        updateNextPreview();
+    }
+    
+    function updateNextPreview() {
+        document.getElementById('nextPreview').style.backgroundColor = colors[nextColor];
+    }
+    
+    function shoot(angle) {
+        if(gameOver) return;
+        
+        let dx = Math.cos(angle) * 5;
+        let dy = Math.sin(angle) * 5;
+        let bubble = {
+            x: currentBubble.x,
+            y: currentBubble.y,
+            color: currentBubble.color,
+            radius: 18,
+            vx: dx,
+            vy: dy
+        };
+        
+        let interval = setInterval(() => {
+            bubble.x += bubble.vx;
+            bubble.y += bubble.vy;
+            
+            if(bubble.x < 20 || bubble.x > 380) {
+                bubble.vx *= -1;
+            }
+            if(bubble.y < 20) {
+                bubble.y = 20;
+                bubble.vy = 0;
+                bubble.vx = 0;
+                
+                // Check collision with other bubbles
+                let collided = false;
+                for(let b of bubbles) {
+                    let dist = Math.hypot(bubble.x - b.x, bubble.y - b.y);
+                    if(dist < 36) {
+                        collided = true;
+                        break;
+                    }
+                }
+                
+                if(!collided) {
+                    bubbles.push({
+                        x: bubble.x,
+                        y: bubble.y,
+                        color: bubble.color,
+                        radius: 18
+                    });
+                }
+                
+                checkMatches();
+                
+                // New current bubble
+                currentBubble.color = nextColor;
+                nextColor = Math.floor(Math.random() * colors.length);
+                updateNextPreview();
+                
+                clearInterval(interval);
+            }
+            
+            render();
+        }, 20);
+    }
+    
+    function checkMatches() {
+        // Simple match detection (3+ in a row)
+        let matches = [];
+        
+        // Horizontal
+        for(let y=20; y<400; y+=40) {
+            let row = bubbles.filter(b => Math.abs(b.y - y) < 10);
+            row.sort((a,b) => a.x - b.x);
+            
+            for(let i=0; i<row.length-2; i++) {
+                if(row[i].color === row[i+1].color && row[i].color === row[i+2].color) {
+                    matches.push(row[i], row[i+1], row[i+2]);
+                }
+            }
+        }
+        
+        // Remove matches
+        if(matches.length > 0) {
+            bubbles = bubbles.filter(b => !matches.includes(b));
+            score += matches.length * 10;
+            document.getElementById('score').textContent = `Score: ${score}`;
+        }
+    }
+    
+    function render() {
+        ctx.clearRect(0,0,400,400);
+        
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(0,0,400,400);
+        
+        // Draw existing bubbles
+        bubbles.forEach(b => {
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2);
+            ctx.fillStyle = colors[b.color];
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+        
+        // Draw current bubble
+        ctx.beginPath();
+        ctx.arc(currentBubble.x, currentBubble.y, 18, 0, Math.PI*2);
+        ctx.fillStyle = colors[currentBubble.color];
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    
+    canvas.addEventListener('click', (e) => {
+        let rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        let angle = Math.atan2(y - currentBubble.y, x - currentBubble.x);
+        shoot(angle);
+    });
+    
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        let rect = canvas.getBoundingClientRect();
+        let touch = e.touches[0];
+        let x = touch.clientX - rect.left;
+        let y = touch.clientY - rect.top;
+        let angle = Math.atan2(y - currentBubble.y, x - currentBubble.x);
+        shoot(angle);
+    });
+    
+    document.getElementById('shootBtn').onclick = () => {
+        shoot(0); // Shoot straight up
+    };
+    
+    document.getElementById('resetBtn').onclick = init;
+    
+    init();
+})();
+</script>
+</body>
+</html>

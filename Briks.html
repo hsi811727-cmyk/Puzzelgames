@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NEON BRICK BREAKER - ATARI STYLE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: 'Courier New', monospace;
+        }
+        canvas { 
+            border: 2px solid #0ff; 
+            width: 100%; 
+            max-width: 480px; 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
+        }
+        .info { 
+            color: #0ff; 
+            margin-top: 10px; 
+            text-align: center;
+            font-size: 16px;
+            text-shadow: 0 0 5px #0ff;
+        }
+        button {
+            background: #000;
+            color: #0ff;
+            border: 2px solid #0ff;
+            padding: 10px 20px;
+            font-size: 18px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 5px #0ff;
+            box-shadow: 0 0 10px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align:center">
+        <canvas id="gameCanvas" width="480" height="640"></canvas>
+        <div class="info" id="score">SCORE: 0</div>
+        <div class="info" id="lives">LIVES: 3</div>
+        <button onclick="startGame()">START GAME</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ATARI STYLE - PIXEL PERFECT
+        let paddleX = 200;
+        let ballX = 240;
+        let ballY = 580;
+        let ballSpeedX = 4;
+        let ballSpeedY = -4;
+        let score = 0;
+        let lives = 3;
+        let gameActive = false;
+        
+        // BRICKS - ATARI 2600 STYLE
+        const brickRowCount = 8;
+        const brickColumnCount = 6;
+        const brickWidth = 55;
+        const brickHeight = 20;
+        const brickPadding = 2;
+        const brickOffsetX = 15;
+        const brickOffsetY = 30;
+        
+        let bricks = [];
+        
+        function createBricks() {
+            for(let c = 0; c < brickColumnCount; c++) {
+                bricks[c] = [];
+                for(let r = 0; r < brickRowCount; r++) {
+                    bricks[c][r] = { x: 0, y: 0, active: 1 };
+                }
+            }
+        }
+        createBricks();
+        
+        // CONTROLS - TOUCH AND MOUSE
+        let rightPressed = false;
+        let leftPressed = false;
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            let scaleX = canvas.width / rect.width;
+            let touchX = (touch.clientX - rect.left) * scaleX;
+            paddleX = touchX - 40;
+            if(paddleX < 0) paddleX = 0;
+            if(paddleX > canvas.width - 80) paddleX = canvas.width - 80;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            let rect = canvas.getBoundingClientRect();
+            let scaleX = canvas.width / rect.width;
+            let mouseX = (e.clientX - rect.left) * scaleX;
+            paddleX = mouseX - 40;
+            if(paddleX < 0) paddleX = 0;
+            if(paddleX > canvas.width - 80) paddleX = canvas.width - 80;
+        });
+        
+        // KEYBOARD FOR TESTING
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Right' || e.key === 'ArrowRight') {
+                paddleX += 20;
+                if(paddleX > canvas.width - 80) paddleX = canvas.width - 80;
+            }
+            if(e.key === 'Left' || e.key === 'ArrowLeft') {
+                paddleX -= 20;
+                if(paddleX < 0) paddleX = 0;
+            }
+        });
+        
+        function drawPaddle() {
+            ctx.fillStyle = '#0ff';
+            ctx.shadowColor = '#0ff';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(paddleX, canvas.height - 40, 80, 12);
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = '#fff';
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(ballX, ballY, 8, 8);
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawBricks() {
+            for(let c = 0; c < brickColumnCount; c++) {
+                for(let r = 0; r < brickRowCount; r++) {
+                    if(bricks[c][r].active === 1) {
+                        let brickX = r * (brickWidth + brickPadding) + brickOffsetX;
+                        let brickY = c * (brickHeight + brickPadding) + brickOffsetY;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        
+                        // NEON COLORS - ATARI STYLE
+                        let hue = (r * 30 + c * 20) % 360;
+                        ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                        ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                        ctx.shadowBlur = 8;
+                        ctx.fillRect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.shadowBlur = 0;
+                        ctx.strokeStyle = '#fff';
+                        ctx.strokeRect(brickX, brickY, brickWidth, brickHeight);
+                    }
+                }
+            }
+        }
+        
+        function collisionDetection() {
+            for(let c = 0; c < brickColumnCount; c++) {
+                for(let r = 0; r < brickRowCount; r++) {
+                    let b = bricks[c][r];
+                    if(b.active === 1) {
+                        if(ballX > b.x && ballX < b.x + brickWidth && ballY > b.y && ballY < b.y + brickHeight) {
+                            ballSpeedY = -ballSpeedY;
+                            b.active = 0;
+                            score += 10;
+                            document.getElementById('score').innerHTML = 'SCORE: ' + score;
+                            
+                            // SPEED UP EVERY 50 POINTS
+                            if(score % 50 === 0) {
+                                ballSpeedX *= 1.1;
+                                ballSpeedY *= 1.1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function draw() {
+            if(!gameActive) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // ATARI SCANLINES
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            for(let i = 0; i < canvas.height; i+=4) {
+                ctx.fillRect(0, i, canvas.width, 1);
+            }
+            
+            drawBricks();
+            drawPaddle();
+            drawBall();
+            collisionDetection();
+            
+            // BALL MOVEMENT
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+            
+            // WALL COLLISION
+            if(ballX < 0 || ballX > canvas.width - 8) {
+                ballSpeedX = -ballSpeedX;
+            }
+            if(ballY < 0) {
+                ballSpeedY = -ballSpeedY;
+            }
+            
+            // PADDLE COLLISION
+            if(ballY > canvas.height - 48 && ballY < canvas.height - 32 && 
+               ballX > paddleX && ballX < paddleX + 80) {
+                ballSpeedY = -ballSpeedY;
+                // ANGLE BASED ON WHERE IT HITS
+                let hitPos = (ballX - paddleX) / 80;
+                ballSpeedX = 8 * (hitPos - 0.5);
+            }
+            
+            // LOSE BALL
+            if(ballY > canvas.height) {
+                lives--;
+                document.getElementById('lives').innerHTML = 'LIVES: ' + lives;
+                
+                if(lives === 0) {
+                    gameActive = false;
+                    alert('GAME OVER! SCORE: ' + score);
+                } else {
+                    // RESET BALL
+                    ballX = paddleX + 40;
+                    ballY = canvas.height - 50;
+                    ballSpeedX = 4;
+                    ballSpeedY = -4;
+                }
+            }
+            
+            // WIN CONDITION
+            let bricksLeft = 0;
+            for(let c = 0; c < brickColumnCount; c++) {
+                for(let r = 0; r < brickRowCount; r++) {
+                    bricksLeft += bricks[c][r].active;
+                }
+            }
+            
+            if(bricksLeft === 0) {
+                gameActive = false;
+                alert('YOU WIN! SCORE: ' + score);
+            }
+            
+            requestAnimationFrame(draw);
+        }
+        
+        function startGame() {
+            // RESET EVERYTHING
+            gameActive = true;
+            score = 0;
+            lives = 3;
+            ballSpeedX = 4;
+            ballSpeedY = -4;
+            paddleX = 200;
+            ballX = 240;
+            ballY = 580;
+            document.getElementById('score').innerHTML = 'SCORE: 0';
+            document.getElementById('lives').innerHTML = 'LIVES: 3';
+            
+            // RESET BRICKS
+            for(let c = 0; c < brickColumnCount; c++) {
+                for(let r = 0; r < brickRowCount; r++) {
+                    bricks[c][r].active = 1;
+                }
+            }
+            
+            draw();
+        }
+        
+        // AUTO-START FOR TESTING
+        window.onload = startGame;
+    </script>
+</body>
+</html>

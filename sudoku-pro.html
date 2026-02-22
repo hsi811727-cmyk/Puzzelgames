@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🧩 Sudoku Pro - 3 Difficulties</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: #1a2e3f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: min(98vw, 550px);
+            background: #2c3e50;
+            border-radius: 30px;
+            padding: 16px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            background: #1e2b38;
+            padding: 12px;
+            border-radius: 40px;
+            color: white;
+        }
+        .difficulty {
+            display: flex;
+            gap: 5px;
+        }
+        .difficulty button {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+        }
+        .difficulty button.active {
+            background: #e67e22;
+        }
+        .timer {
+            background: #2c3e50;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-family: monospace;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            aspect-ratio: 1/1;
+            background: #4a3f33;
+            padding: 5px;
+            border-radius: 15px;
+            gap: 1px;
+            margin-bottom: 16px;
+        }
+        .cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: min(5vw, 28px);
+            background: #f5f0e8;
+            cursor: pointer;
+        }
+        .cell.fixed {
+            background: #e8dfd3;
+            font-weight: bold;
+        }
+        .cell.selected {
+            background: #b8d9f0 !important;
+        }
+        .cell.related {
+            background: #e3eef9 !important;
+        }
+        .cell.conflict {
+            background: #ffcdd2 !important;
+        }
+        .number-pad {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .num-btn {
+            background: #34495e;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 14px;
+            font-size: 1.3rem;
+            cursor: pointer;
+        }
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .control-btn {
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 14px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .message {
+            color: white;
+            text-align: center;
+            margin: 10px 0;
+            min-height: 30px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <div class="difficulty">
+            <button id="easyBtn" class="active">Easy</button>
+            <button id="mediumBtn">Medium</button>
+            <button id="hardBtn">Hard</button>
+        </div>
+        <div class="timer" id="timer">00:00</div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="number-pad">
+        <button class="num-btn" data-num="1">1</button>
+        <button class="num-btn" data-num="2">2</button>
+        <button class="num-btn" data-num="3">3</button>
+        <button class="num-btn" data-num="4">4</button>
+        <button class="num-btn" data-num="5">5</button>
+        <button class="num-btn" data-num="6">6</button>
+        <button class="num-btn" data-num="7">7</button>
+        <button class="num-btn" data-num="8">8</button>
+        <button class="num-btn" data-num="9">9</button>
+        <button class="num-btn" id="clearBtn">⌫</button>
+    </div>
+    <div class="control-panel">
+        <button class="control-btn" id="newBtn">New</button>
+        <button class="control-btn" id="checkBtn">Check</button>
+        <button class="control-btn" id="hintBtn">Hint</button>
+    </div>
+    <div class="message" id="message"></div>
+</div>
+<script>
+(function() {
+    const puzzles = {
+        easy: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]],
+        medium: [[0,0,4,3,0,0,2,0,9],[0,0,5,0,0,9,0,0,1],[0,7,0,0,6,0,0,4,3],[0,0,6,0,0,2,0,8,7],[1,9,0,0,0,7,4,0,0],[0,5,0,1,9,0,0,0,0],[4,0,0,0,2,0,8,0,0],[9,0,0,5,0,0,3,0,2],[2,8,7,4,0,0,0,0,5]],
+        hard: [[0,6,0,0,0,0,9,0,0],[0,0,5,0,2,0,0,7,0],[1,0,0,9,0,3,0,0,8],[2,0,0,0,7,0,0,9,0],[0,7,0,8,0,0,0,0,6],[0,0,8,0,0,4,0,0,1],[0,0,0,6,0,0,7,0,0],[0,0,2,0,8,0,0,0,4],[0,0,9,0,1,0,0,3,0]]
+    };
+    
+    let board, fixed, selected={r:-1,c:-1}, difficulty='easy', seconds=0, timer, gameWon=false;
+    
+    function initBoard(puzzle) {
+        board=JSON.parse(JSON.stringify(puzzle));
+        fixed=[];
+        for(let r=0;r<9;r++) {
+            fixed[r]=[];
+            for(let c=0;c<9;c++) fixed[r][c]=puzzle[r][c]!==0;
+        }
+        selected={r:-1,c:-1};
+        gameWon=false;
+        document.getElementById('message').innerHTML='';
+    }
+    
+    function isValidMove(row,col,num) {
+        for(let c=0;c<9;c++) if(c!==col && board[row][c]===num) return false;
+        for(let r=0;r<9;r++) if(r!==row && board[r][col]===num) return false;
+        let br=Math.floor(row/3)*3, bc=Math.floor(col/3)*3;
+        for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) 
+            if(r!==row && c!==col && board[r][c]===num) return false;
+        return true;
+    }
+    
+    function findConflicts() {
+        let conflicts=[];
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+            let num=board[r][c];
+            if(num===0) continue;
+            for(let col=0;col<9;col++) if(col!==c && board[r][col]===num) { conflicts.push({r,c}); break; }
+            for(let row=0;row<9;row++) if(row!==r && board[row][c]===num) { conflicts.push({r,c}); break; }
+            let br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
+            for(let row=br;row<br+3;row++) for(let col=bc;col<bc+3;col++) 
+                if(row!==r && col!==c && board[row][col]===num) { conflicts.push({r,c}); break; }
+        }
+        return conflicts;
+    }
+    
+    function isComplete() {
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c]===0) return false;
+        return findConflicts().length===0;
+    }
+    
+    function render() {
+        let html='', conflicts=findConflicts();
+        let conflictSet=new Set(conflicts.map(c=>`${c.r},${c.c}`));
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+            let classes='cell';
+            if(fixed[r][c]) classes+=' fixed';
+            if(selected.r===r && selected.c===c) classes+=' selected';
+            if(selected.r!==-1 && (r===selected.r || c===selected.c || 
+                (Math.floor(r/3)===Math.floor(selected.r/3) && Math.floor(c/3)===Math.floor(selected.c/3)))) 
+                if(!(r===selected.r && c===selected.c)) classes+=' related';
+            if(conflictSet.has(`${r},${c}`)) classes+=' conflict';
+            html+=`<div class="${classes}" data-r="${r}" data-c="${c}">${board[r][c]!==0?board[r][c]:''}</div>`;
+        }
+        document.getElementById('board').innerHTML=html;
+        
+        document.querySelectorAll('.cell').forEach(cell=>{
+            cell.onclick=()=>{
+                let r=parseInt(cell.dataset.r), c=parseInt(cell.dataset.c);
+                if(!fixed[r][c] && !gameWon) selected={r,c}; else selected={r:-1,c:-1};
+                render();
+            };
+        });
+        
+        if(isComplete() && !gameWon) {
+            gameWon=true;
+            document.getElementById('message').innerHTML='🎉 YOU WIN! 🎉';
+        }
+    }
+    
+    function startTimer() {
+        if(timer) clearInterval(timer);
+        seconds=0;
+        timer=setInterval(()=>{
+            seconds++;
+            let m=Math.floor(seconds/60), s=seconds%60;
+            document.getElementById('timer').innerHTML=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        },1000);
+    }
+    
+    initBoard(puzzles.easy); render(); startTimer();
+    
+    document.querySelectorAll('.num-btn[data-num]').forEach(btn=>{
+        btn.onclick=()=>{
+            if(selected.r===-1) { document.getElementById('message').innerHTML='Select a cell first'; return; }
+            let num=parseInt(btn.dataset.num);
+            board[selected.r][selected.c]=num;
+            render();
+        };
+    });
+    
+    document.getElementById('clearBtn').onclick=()=>{
+        if(selected.r===-1) return;
+        board[selected.r][selected.c]=0;
+        render();
+    };
+    
+    document.getElementById('newBtn').onclick=()=>{
+        initBoard(puzzles[difficulty]);
+        render();
+        startTimer();
+    };
+    
+    document.getElementById('checkBtn').onclick=()=>{
+        let c=findConflicts();
+        if(c.length===0) document.getElementById('message').innerHTML='✓ No conflicts!';
+        else document.getElementById('message').innerHTML=`❌ Found ${c.length} conflicts`;
+        render();
+    };
+    
+    document.getElementById('hintBtn').onclick=()=>{
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+            if(board[r][c]===0 && !fixed[r][c]) {
+                for(let n=1;n<=9;n++) {
+                    if(isValidMove(r,c,n)) {
+                        board[r][c]=n;
+                        selected={r,c};
+                        render();
+                        return;
+                    }
+                }
+            }
+        }
+    };
+    
+    document.getElementById('easyBtn').onclick=()=>{ difficulty='easy'; document.querySelectorAll('.difficulty button').forEach(b=>b.classList.remove('active')); document.getElementById('easyBtn').classList.add('active'); initBoard(puzzles.easy); render(); startTimer(); };
+    document.getElementById('mediumBtn').onclick=()=>{ difficulty='medium'; document.querySelectorAll('.difficulty button').forEach(b=>b.classList.remove('active')); document.getElementById('mediumBtn').classList.add('active'); initBoard(puzzles.medium); render(); startTimer(); };
+    document.getElementById('hardBtn').onclick=()=>{ difficulty='hard'; document.querySelectorAll('.difficulty button').forEach(b=>b.classList.remove('active')); document.getElementById('hardBtn').classList.add('active'); initBoard(puzzles.hard); render(); startTimer(); };
+})();
+</script>
+</body>
+</html>

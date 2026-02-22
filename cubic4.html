@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🌀 3x3 CUBE · SOLVABLE LAYERS</title>
+    <style>
+        /* minimalist & clean – same compact UI, slightly modernized */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0b0f14;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+        }
+
+        /* status badge – smaller & subtle */
+        #status-badge {
+            position: absolute;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 30, 40, 0.7);
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
+            border-radius: 40px;
+            color: #ffd966;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            border: 1px solid #3a4a5a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 10;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* control panel – bottom centered, glass, no overlap */
+        #control-panel {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(16, 22, 28, 0.75);
+            backdrop-filter: blur(8px);
+            border-radius: 24px;
+            padding: 12px 20px;
+            border: 1px solid #2e3b48;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 380px;
+            z-index: 20;
+        }
+
+        .axis-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .axis-label {
+            color: #9aaec2;
+            font-size: 11px;
+            font-weight: 600;
+            width: 42px;
+            text-align: right;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .btn {
+            background: #253545;
+            border: none;
+            border-radius: 6px;
+            color: #eef4fc;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 0;
+            cursor: pointer;
+            flex: 1 1 0;
+            transition: 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            border: 1px solid #3f5568;
+            letter-spacing: 0.3px;
+        }
+
+        .btn:hover {
+            background: #2f4055;
+            transform: translateY(-2px);
+            border-color: #5b7a9a;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            background: #1d2a36;
+        }
+
+        .system-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 6px;
+        }
+
+        .system-btn {
+            background: #b85c1a;
+            border-color: #e07c3c;
+            color: white;
+            flex: 1;
+            padding: 10px 0;
+            font-size: 13px;
+        }
+
+        .system-btn.reset {
+            background: #a03232;
+            border-color: #c55a5a;
+        }
+
+        .system-btn:hover {
+            filter: brightness(1.15);
+        }
+
+        /* very subtle hint that UI is separate */
+        .btn:focus-visible {
+            outline: 2px solid #ffbf69;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- simple status line -->
+    <div id="status-badge">🧩 3x3 SOLVABLE CUBE · LAYER ROTATION</div>
+
+    <!-- UI panel – exactly 9 buttons + shuffle/reset -->
+    <div id="control-panel">
+        <!-- X axis -->
+        <div class="axis-row">
+            <span class="axis-label">X</span>
+            <button class="btn" id="x-left">LEFT</button>
+            <button class="btn" id="x-mid">MID</button>
+            <button class="btn" id="x-right">RIGHT</button>
+        </div>
+        <!-- Y axis -->
+        <div class="axis-row">
+            <span class="axis-label">Y</span>
+            <button class="btn" id="y-down">DOWN</button>
+            <button class="btn" id="y-mid">MID</button>
+            <button class="btn" id="y-up">UP</button>
+        </div>
+        <!-- Z axis -->
+        <div class="axis-row">
+            <span class="axis-label">Z</span>
+            <button class="btn" id="z-back">BACK</button>
+            <button class="btn" id="z-mid">MID</button>
+            <button class="btn" id="z-front">FRONT</button>
+        </div>
+        <!-- system buttons -->
+        <div class="system-group">
+            <button class="system-btn" id="shuffle-btn">🔀 SHUFFLE</button>
+            <button class="system-btn reset" id="reset-btn">⟲ RESET</button>
+        </div>
+    </div>
+
+    <!-- Three.js import map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+        // ----- configuration -----
+        const COLOR_LIST = [0xffffff, 0xd50032, 0x009b48, 0x0046ad, 0xff5800, 0xffd500]; // white, red, green, blue, orange, yellow
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b0f14);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Adjusted camera position to move cube higher in view (less bottom space)
+        // Lower Y position makes cube appear higher relative to buttons
+        camera.position.set(5, 3.5, 7); // Reduced Y from 5 to 3.5 to shift cube upward
+        camera.lookAt(0, 0.5, 0); // Look slightly above center to shift visible area up
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = false; // not needed
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // controls – smooth orbit
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+        controls.enableZoom = true;
+        controls.rotateSpeed = 0.8;
+        controls.maxPolarAngle = Math.PI / 2; // restrict below to keep view clean
+        // Adjust target to shift cube up in frame
+        controls.target.set(0, 0.5, 0); // Look at a point slightly above center
+
+        // lights
+        const ambient = new THREE.AmbientLight(0xffffff, 1.1);
+        scene.add(ambient);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+        dirLight.position.set(2, 5, 5);
+        scene.add(dirLight);
+        
+        const backLight = new THREE.PointLight(0x446688, 0.6);
+        backLight.position.set(-3, 1, -4);
+        scene.add(backLight);
+
+        // main group holding all little cubes
+        const cubeGroup = new THREE.Group();
+        // Shift the entire cube group upward slightly for better screen position
+        cubeGroup.position.y = 0.5; // Raise cube by 0.5 units to avoid button overlap
+        scene.add(cubeGroup);
+
+        let cubes = [];            // array of all 27 meshes
+        let isAnimating = false;   // block concurrent animations
+
+        // ----- create 3x3x3 cube with colored stickers (materials per face) -----
+        function buildCube() {
+            // remove old ones
+            cubes.forEach(m => cubeGroup.remove(m));
+            cubes = [];
+
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    for (let z = -1; z <= 1; z++) {
+                        // each cubie: 6 materials (standard, colored)
+                        const materials = [
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[0], roughness: 0.3, metalness: 0.1 }), // right (x+)
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[1], roughness: 0.3, metalness: 0.1 }), // left (x-)
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[2], roughness: 0.3, metalness: 0.1 }), // up (y+)
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[3], roughness: 0.3, metalness: 0.1 }), // down (y-)
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[4], roughness: 0.3, metalness: 0.1 }), // front (z+)
+                            new THREE.MeshStandardMaterial({ color: COLOR_LIST[5], roughness: 0.3, metalness: 0.1 })  // back (z-)
+                        ];
+
+                        // adjust colors based on position: internal faces remain white-ish but we keep full set for simplicity
+                        // but we want standard cube orientation: 
+                        // right face (+x) white, left (-x) red, up (+y) green, down (-y) blue, front (+z) orange, back (-z) yellow
+                        // reassign to match conventional cube:
+                        // materials order: +x, -x, +y, -y, +z, -z
+                        materials[0].color.setHex(COLOR_LIST[0]); // right: white
+                        materials[1].color.setHex(COLOR_LIST[1]); // left: red
+                        materials[2].color.setHex(COLOR_LIST[2]); // up: green
+                        materials[3].color.setHex(COLOR_LIST[3]); // down: blue
+                        materials[4].color.setHex(COLOR_LIST[4]); // front: orange
+                        materials[5].color.setHex(COLOR_LIST[5]); // back: yellow
+
+                        // create tiny gaps (0.96 size) so black lines appear
+                        const geom = new THREE.BoxGeometry(0.94, 0.94, 0.94);
+                        const mesh = new THREE.Mesh(geom, materials);
+                        mesh.position.set(x, y, z);
+                        
+                        cubeGroup.add(mesh);
+                        cubes.push(mesh);
+                    }
+                }
+            }
+        }
+
+        // ----- rotate a layer (axis: 'x','y','z'; layer: -1,0,1; angle = PI/2 default) -----
+        function rotateLayer(axis, layer, angle = Math.PI / 2, instant = false) {
+            if (isAnimating && !instant) return;
+            isAnimating = true;
+
+            // filter cubes that belong to the layer (rounded position)
+            const targetCubes = cubes.filter(c => Math.round(c.position[axis]) === layer);
+            if (targetCubes.length === 0) {
+                isAnimating = false;
+                return;
+            }
+
+            const pivot = new THREE.Group();
+            scene.add(pivot);
+            targetCubes.forEach(c => pivot.add(c));
+
+            if (instant) {
+                // direct set
+                pivot.rotation[axis] = angle;
+                finishRotation(pivot, targetCubes, axis);
+            } else {
+                const steps = 10;
+                let step = 0;
+                const delta = angle / steps;
+                function animateStep() {
+                    step++;
+                    pivot.rotation[axis] += delta;
+                    if (step < steps) {
+                        requestAnimationFrame(animateStep);
+                    } else {
+                        // snap to exact angle
+                        pivot.rotation[axis] = angle;
+                        finishRotation(pivot, targetCubes, axis);
+                    }
+                }
+                animateStep();
+            }
+        }
+
+        function finishRotation(pivot, targetCubes, axis) {
+            pivot.updateMatrixWorld();
+            // apply pivot transform to each child
+            targetCubes.forEach(c => {
+                // apply rotation
+                c.applyQuaternion(pivot.quaternion);
+                // apply position rotation
+                c.position.applyQuaternion(pivot.quaternion);
+                
+                // round to integer to avoid drift
+                c.position.x = Math.round(c.position.x);
+                c.position.y = Math.round(c.position.y);
+                c.position.z = Math.round(c.position.z);
+                
+                // re-add to main group
+                cubeGroup.add(c);
+            });
+            scene.remove(pivot);
+            isAnimating = false;
+        }
+
+        // ----- SHUFFLE (20 random instant moves) -----
+        function shuffleCube() {
+            if (isAnimating) return; // avoid interrupting ongoing anim, but we'll queue?
+            const axes = ['x', 'y', 'z'];
+            const layers = [-1, 0, 1];
+            let movesDone = 0;
+            const MAX_MOVES = 22; // a bit more random
+
+            function doMove() {
+                if (movesDone >= MAX_MOVES) return;
+                const axis = axes[Math.floor(Math.random() * 3)];
+                const layer = layers[Math.floor(Math.random() * 3)];
+                // instant rotation (no animation) for shuffle speed
+                rotateLayer(axis, layer, Math.PI / 2, true);
+                movesDone++;
+                // schedule next
+                setTimeout(doMove, 45);
+            }
+            doMove();
+        }
+
+        // ----- reset: rebuild cube -----
+        function resetCube() {
+            // remove all and re-initialize
+            while(cubeGroup.children.length) {
+                cubeGroup.remove(cubeGroup.children[0]);
+            }
+            buildCube();
+            isAnimating = false; // reset animation lock
+        }
+
+        // initialize
+        buildCube();
+
+        // ----- connect UI buttons -----
+        document.getElementById('x-left').addEventListener('click', () => rotateLayer('x', -1, Math.PI/2, false));
+        document.getElementById('x-mid').addEventListener('click', () => rotateLayer('x', 0, Math.PI/2, false));
+        document.getElementById('x-right').addEventListener('click', () => rotateLayer('x', 1, Math.PI/2, false));
+
+        document.getElementById('y-down').addEventListener('click', () => rotateLayer('y', -1, Math.PI/2, false));
+        document.getElementById('y-mid').addEventListener('click', () => rotateLayer('y', 0, Math.PI/2, false));
+        document.getElementById('y-up').addEventListener('click', () => rotateLayer('y', 1, Math.PI/2, false));
+
+        document.getElementById('z-back').addEventListener('click', () => rotateLayer('z', -1, Math.PI/2, false));
+        document.getElementById('z-mid').addEventListener('click', () => rotateLayer('z', 0, Math.PI/2, false));
+        document.getElementById('z-front').addEventListener('click', () => rotateLayer('z', 1, Math.PI/2, false));
+
+        document.getElementById('shuffle-btn').addEventListener('click', () => {
+            if (!isAnimating) shuffleCube();
+        });
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            resetCube();
+        });
+
+        // ----- animation loop -----
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // for damping
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // ----- resize handler -----
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

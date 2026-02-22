@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>♜ Chess · Hard Difficulty</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        :root {
+            --bg: #1a2e3f;
+            --board-size: min(95vw, 520px);
+            --light: #f0d9b5;
+            --dark: #b58863;
+            --selected: #fff2b5;
+            --valid: #7fc97f;
+            --capture: #f4a582;
+        }
+
+        body {
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .game-container {
+            width: var(--board-size);
+            background: #2c3e50;
+            border-radius: 24px;
+            padding: 16px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+        }
+
+        .status-bar {
+            background: #1e2b38;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 40px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            border: 1px solid #4a5f72;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            border: 3px solid #4a3f33;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: #4a3f33;
+            gap: 1px;
+        }
+
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: min(7vw, 42px);
+            cursor: pointer;
+            position: relative;
+            background-color: var(--light);
+            width: 100%;
+            height: 100%;
+        }
+
+        .square.dark {
+            background-color: var(--dark);
+        }
+
+        .square.selected {
+            background-color: var(--selected) !important;
+        }
+
+        .square.valid-move {
+            background-color: var(--valid) !important;
+        }
+
+        .square.valid-capture {
+            background-color: var(--capture) !important;
+        }
+
+        .square.check {
+            background-color: #ff9999 !important;
+        }
+
+        .difficulty-panel {
+            background: #1e2b38;
+            border-radius: 30px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-around;
+            border: 1px solid #4a5f72;
+        }
+
+        .difficulty-btn {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            flex: 1;
+            margin: 0 5px;
+            transition: 0.1s;
+            border: 1px solid #4a5f72;
+        }
+
+        .difficulty-btn.active {
+            background: #e67e22;
+            box-shadow: 0 2px 0 #b85e0f;
+        }
+
+        .difficulty-btn:active {
+            transform: translateY(2px);
+        }
+
+        .capture-panel {
+            background: #2c3e50;
+            border-radius: 16px;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .capture-box {
+            background: #1e2b38;
+            border-radius: 30px;
+            padding: 10px;
+            flex: 1;
+            color: white;
+            font-size: min(6vw, 32px);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            min-height: 60px;
+            border: 1px solid #4a5f72;
+        }
+
+        .capture-label {
+            font-size: 0.8rem;
+            color: #a0b8cc;
+            width: 100%;
+            margin-bottom: 3px;
+        }
+
+        button {
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 14px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #b85e0f;
+            transition: 0.05s;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #b85e0f;
+        }
+
+        .footer {
+            color: #a0b8cc;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="status-bar">
+        <span id="turnText">⚪ YOUR TURN</span>
+        <span>🤖 CPU</span>
+    </div>
+
+    <div class="difficulty-panel">
+        <button class="difficulty-btn" id="easyBtn">EASY</button>
+        <button class="difficulty-btn" id="mediumBtn">MEDIUM</button>
+        <button class="difficulty-btn active" id="hardBtn">HARD</button>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="capture-panel">
+        <div class="capture-box">
+            <div class="capture-label">⚫ captured</div>
+            <span id="whiteCaptured"></span>
+        </div>
+        <div class="capture-box">
+            <div class="capture-label">⚪ captured</div>
+            <span id="blackCaptured"></span>
+        </div>
+    </div>
+
+    <button id="resetBtn">⟲ NEW GAME</button>
+    <div class="footer">tap white piece → tap green square to move</div>
+</div>
+
+<script>
+(function() {
+    // Chess symbols
+    const symbols = {
+        'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+        'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+    };
+
+    // Game state
+    let board = [];
+    let currentPlayer = 'w';
+    let selectedRow = -1, selectedCol = -1;
+    let validMoves = [];
+    let gameOver = false;
+    let computerBusy = false;
+    
+    // Difficulty setting
+    let difficulty = 'hard'; // easy, medium, hard
+    
+    let whiteCaptured = [];
+    let blackCaptured = [];
+
+    // Piece values for evaluation
+    const PIECE_VALUES = {
+        'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 100,
+        'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 100
+    };
+
+    function initBoard() {
+        board = [
+            ['r','n','b','q','k','b','n','r'],
+            ['p','p','p','p','p','p','p','p'],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['P','P','P','P','P','P','P','P'],
+            ['R','N','B','Q','K','B','N','R']
+        ];
+        currentPlayer = 'w';
+        selectedRow = -1;
+        selectedCol = -1;
+        validMoves = [];
+        gameOver = false;
+        computerBusy = false;
+        whiteCaptured = [];
+        blackCaptured = [];
+    }
+
+    function getColor(piece) {
+        if (!piece) return null;
+        return piece === piece.toUpperCase() ? 'w' : 'b';
+    }
+
+    function opposite(color) {
+        return color === 'w' ? 'b' : 'w';
+    }
+
+    function isValidMove(fr, fc, tr, tc) {
+        let piece = board[fr][fc];
+        if (!piece) return false;
+        
+        let type = piece.toLowerCase();
+        let color = getColor(piece);
+        let target = board[tr][tc];
+        
+        if (target && getColor(target) === color) return false;
+
+        if (type === 'p') {
+            let dir = (color === 'w') ? -1 : 1;
+            let startRow = (color === 'w') ? 6 : 1;
+            
+            if (tc === fc && tr === fr + dir && !target) return true;
+            if (tc === fc && tr === fr + 2*dir && fr === startRow && !board[fr+dir][fc] && !target) return true;
+            if (Math.abs(tc - fc) === 1 && tr === fr + dir && target && getColor(target) !== color) return true;
+            return false;
+        }
+        
+        if (type === 'n') {
+            let dr = Math.abs(tr - fr);
+            let dc = Math.abs(tc - fc);
+            return (dr === 2 && dc === 1) || (dr === 1 && dc === 2);
+        }
+        
+        if (type === 'k') {
+            return Math.abs(tr - fr) <= 1 && Math.abs(tc - fc) <= 1;
+        }
+        
+        if (type === 'r') {
+            if (fr !== tr && fc !== tc) return false;
+            let stepR = fr === tr ? 0 : (tr > fr ? 1 : -1);
+            let stepC = fc === tc ? 0 : (tc > fc ? 1 : -1);
+            let r = fr + stepR, c = fc + stepC;
+            while (r !== tr || c !== tc) {
+                if (board[r][c]) return false;
+                r += stepR;
+                c += stepC;
+            }
+            return true;
+        }
+        
+        if (type === 'b') {
+            if (Math.abs(tr - fr) !== Math.abs(tc - fc)) return false;
+            let stepR = tr > fr ? 1 : -1;
+            let stepC = tc > fc ? 1 : -1;
+            let r = fr + stepR, c = fc + stepC;
+            while (r !== tr || c !== tc) {
+                if (board[r][c]) return false;
+                r += stepR;
+                c += stepC;
+            }
+            return true;
+        }
+        
+        if (type === 'q') {
+            if (fr === tr || fc === tc) {
+                let stepR = fr === tr ? 0 : (tr > fr ? 1 : -1);
+                let stepC = fc === tc ? 0 : (tc > fc ? 1 : -1);
+                let r = fr + stepR, c = fc + stepC;
+                while (r !== tr || c !== tc) {
+                    if (board[r][c]) return false;
+                    r += stepR;
+                    c += stepC;
+                }
+                return true;
+            }
+            if (Math.abs(tr - fr) === Math.abs(tc - fc)) {
+                let stepR = tr > fr ? 1 : -1;
+                let stepC = tc > fc ? 1 : -1;
+                let r = fr + stepR, c = fc + stepC;
+                while (r !== tr || c !== tc) {
+                    if (board[r][c]) return false;
+                    r += stepR;
+                    c += stepC;
+                }
+                return true;
+            }
+            return false;
+        }
+        
+        return false;
+    }
+
+    function getValidMoves(row, col, boardState = board) {
+        let moves = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (isValidMove(row, col, r, c)) {
+                    moves.push({
+                        r, c,
+                        capture: !!boardState[r][c]
+                    });
+                }
+            }
+        }
+        return moves;
+    }
+
+    function makeMove(fr, fc, tr, tc) {
+        let piece = board[fr][fc];
+        let color = getColor(piece);
+        let target = board[tr][tc];
+
+        if (target) {
+            if (color === 'w') {
+                whiteCaptured.push(target);
+            } else {
+                blackCaptured.push(target);
+            }
+        }
+
+        board[tr][tc] = piece;
+        board[fr][fc] = '';
+
+        if (piece.toLowerCase() === 'p' && (tr === 0 || tr === 7)) {
+            board[tr][tc] = (color === 'w' ? 'Q' : 'q');
+        }
+
+        currentPlayer = opposite(color);
+        
+        // Check if game over
+        let hasMoves = false;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let p = board[r][c];
+                if (p && getColor(p) === currentPlayer) {
+                    if (getValidMoves(r, c).length > 0) {
+                        hasMoves = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!hasMoves) gameOver = true;
+    }
+
+    // ===== EVALUATE BOARD POSITION =====
+    function evaluateBoard(boardState) {
+        let score = 0;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let piece = boardState[r][c];
+                if (piece) {
+                    let value = PIECE_VALUES[piece];
+                    if (getColor(piece) === 'b') {
+                        score += value; // Black pieces add to score
+                    } else {
+                        score -= value; // White pieces subtract from score
+                    }
+                }
+            }
+        }
+        return score; // Positive = good for black, Negative = good for white
+    }
+
+    // ===== MINIMAX WITH 2-MOVE LOOKAHEAD =====
+    function minimax(depth, isMaximizingPlayer) {
+        if (depth === 0) {
+            return evaluateBoard(board);
+        }
+
+        if (isMaximizingPlayer) {
+            // Black's turn (computer)
+            let bestScore = -Infinity;
+            
+            // Try all possible black moves
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    let piece = board[r][c];
+                    if (piece && getColor(piece) === 'b') {
+                        let moves = getValidMoves(r, c);
+                        
+                        for (let move of moves) {
+                            // Make move on temporary board
+                            let tempBoard = JSON.parse(JSON.stringify(board));
+                            let tempPiece = tempBoard[r][c];
+                            tempBoard[move.r][move.c] = tempPiece;
+                            tempBoard[r][c] = '';
+                            
+                            // Recursively evaluate
+                            let oldBoard = board;
+                            board = tempBoard;
+                            let score = minimax(depth - 1, false);
+                            board = oldBoard;
+                            
+                            bestScore = Math.max(score, bestScore);
+                        }
+                    }
+                }
+            }
+            return bestScore;
+        } else {
+            // White's turn (human) - minimizing
+            let bestScore = Infinity;
+            
+            // Try all possible white moves
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    let piece = board[r][c];
+                    if (piece && getColor(piece) === 'w') {
+                        let moves = getValidMoves(r, c);
+                        
+                        for (let move of moves) {
+                            // Make move on temporary board
+                            let tempBoard = JSON.parse(JSON.stringify(board));
+                            let tempPiece = tempBoard[r][c];
+                            tempBoard[move.r][move.c] = tempPiece;
+                            tempBoard[r][c] = '';
+                            
+                            // Recursively evaluate
+                            let oldBoard = board;
+                            board = tempBoard;
+                            let score = minimax(depth - 1, true);
+                            board = oldBoard;
+                            
+                            bestScore = Math.min(score, bestScore);
+                        }
+                    }
+                }
+            }
+            return bestScore;
+        }
+    }
+
+    // ===== ENHANCED COMPUTER MOVE WITH ALL DIFFICULTIES =====
+    function computerMove() {
+        if (computerBusy || gameOver || currentPlayer !== 'b') return;
+        
+        computerBusy = true;
+        
+        // Collect all possible black moves with metadata
+        let allMoves = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let piece = board[r][c];
+                if (piece && getColor(piece) === 'b') {
+                    for (let tr = 0; tr < 8; tr++) {
+                        for (let tc = 0; tc < 8; tc++) {
+                            if (isValidMove(r, c, tr, tc)) {
+                                // Check if this move captures a piece
+                                let isCapture = !!board[tr][tc];
+                                
+                                // Check if this move puts white king in check
+                                let givesCheck = false;
+                                if (board[tr][tc] !== 'K') {
+                                    // Simulate move
+                                    let oldTarget = board[tr][tc];
+                                    board[tr][tc] = piece;
+                                    board[r][c] = '';
+                                    
+                                    givesCheck = isKingInCheck('w');
+                                    
+                                    // Undo simulation
+                                    board[r][c] = piece;
+                                    board[tr][tc] = oldTarget;
+                                }
+                                
+                                allMoves.push({
+                                    fr: r, fc: c, tr, tc,
+                                    capture: isCapture,
+                                    check: givesCheck,
+                                    piece: piece
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (allMoves.length === 0) {
+            gameOver = true;
+            computerBusy = false;
+            render();
+            return;
+        }
+        
+        // Select move based on difficulty
+        let selectedMove;
+        
+        if (difficulty === 'easy') {
+            // EASY: Completely random
+            selectedMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+        }
+        else if (difficulty === 'medium') {
+            // MEDIUM: Prioritize captures and checks
+            let captureMoves = allMoves.filter(m => m.capture);
+            let checkMoves = captureMoves.filter(m => m.check);
+            
+            if (checkMoves.length > 0) {
+                selectedMove = checkMoves[Math.floor(Math.random() * checkMoves.length)];
+            }
+            else if (captureMoves.length > 0) {
+                selectedMove = captureMoves[Math.floor(Math.random() * captureMoves.length)];
+            }
+            else {
+                selectedMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+            }
+        }
+        else { // HARD: Use minimax to find best move
+            let bestScore = -Infinity;
+            let bestMoves = [];
+            
+            // Evaluate each possible move with 2-ply lookahead
+            for (let move of allMoves) {
+                // Make move on temporary board
+                let tempBoard = JSON.parse(JSON.stringify(board));
+                let piece = tempBoard[move.fr][move.fc];
+                tempBoard[move.tr][move.tc] = piece;
+                tempBoard[move.fr][move.fc] = '';
+                
+                // Evaluate position after this move
+                let oldBoard = board;
+                board = tempBoard;
+                let score = minimax(1, false); // Look 1 more move ahead (total 2 plies)
+                board = oldBoard;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [move];
+                } else if (score === bestScore) {
+                    bestMoves.push(move);
+                }
+            }
+            
+            // Pick randomly from best moves
+            selectedMove = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+        
+        setTimeout(() => {
+            if (currentPlayer === 'b' && !gameOver) {
+                makeMove(selectedMove.fr, selectedMove.fc, selectedMove.tr, selectedMove.tc);
+                selectedRow = -1;
+                computerBusy = false;
+                render();
+            } else {
+                computerBusy = false;
+                render();
+            }
+        }, 300);
+    }
+
+    function isKingInCheck(color) {
+        let kingPos = null;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (board[r][c] === (color === 'w' ? 'K' : 'k')) {
+                    kingPos = {r, c};
+                    break;
+                }
+            }
+        }
+        if (!kingPos) return false;
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let p = board[r][c];
+                if (p && getColor(p) === opposite(color)) {
+                    if (isValidMove(r, c, kingPos.r, kingPos.c)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function render() {
+        let boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+
+        let turnText = document.getElementById('turnText');
+        if (gameOver) turnText.innerText = '🏁 GAME OVER';
+        else if (currentPlayer === 'w') turnText.innerText = '⚪ YOUR TURN';
+        else turnText.innerText = '⚫ CPU TURN';
+
+        validMoves = [];
+        if (selectedRow !== -1 && !gameOver && currentPlayer === 'w' && !computerBusy) {
+            let piece = board[selectedRow][selectedCol];
+            if (piece && getColor(piece) === 'w') {
+                validMoves = getValidMoves(selectedRow, selectedCol);
+            } else {
+                selectedRow = -1;
+            }
+        }
+
+        let whiteInCheck = isKingInCheck('w');
+
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let square = document.createElement('div');
+                square.className = 'square';
+                square.classList.add((r + c) % 2 === 0 ? 'light' : 'dark');
+                square.setAttribute('data-row', r);
+                square.setAttribute('data-col', c);
+
+                if (selectedRow === r && selectedCol === c) {
+                    square.classList.add('selected');
+                }
+
+                let move = validMoves.find(m => m.r === r && m.c === c);
+                if (move) {
+                    if (move.capture) {
+                        square.classList.add('valid-capture');
+                    } else {
+                        square.classList.add('valid-move');
+                    }
+                }
+
+                if (whiteInCheck && board[r][c] === 'K') {
+                    square.classList.add('check');
+                }
+
+                let piece = board[r][c];
+                square.textContent = piece ? symbols[piece] : '';
+
+                square.onclick = function() {
+                    let row = parseInt(this.getAttribute('data-row'));
+                    let col = parseInt(this.getAttribute('data-col'));
+                    
+                    if (gameOver || currentPlayer !== 'w' || computerBusy) return;
+
+                    if (selectedRow !== -1 && selectedCol !== -1) {
+                        if (isValidMove(selectedRow, selectedCol, row, col)) {
+                            makeMove(selectedRow, selectedCol, row, col);
+                            selectedRow = -1;
+                            render();
+                            
+                            if (!gameOver && currentPlayer === 'b') {
+                                setTimeout(() => computerMove(), 200);
+                            }
+                            return;
+                        }
+                    }
+
+                    let piece = board[row][col];
+                    if (piece && getColor(piece) === 'w') {
+                        selectedRow = row;
+                        selectedCol = col;
+                    } else {
+                        selectedRow = -1;
+                    }
+                    render();
+                };
+
+                boardEl.appendChild(square);
+            }
+        }
+
+        document.getElementById('whiteCaptured').innerHTML = whiteCaptured.map(p => symbols[p]).join(' ');
+        document.getElementById('blackCaptured').innerHTML = blackCaptured.map(p => symbols[p]).join(' ');
+    }
+
+    function setDifficulty(level) {
+        difficulty = level;
+        
+        document.getElementById('easyBtn').classList.remove('active');
+        document.getElementById('mediumBtn').classList.remove('active');
+        document.getElementById('hardBtn').classList.remove('active');
+        
+        if (level === 'easy') document.getElementById('easyBtn').classList.add('active');
+        if (level === 'medium') document.getElementById('mediumBtn').classList.add('active');
+        if (level === 'hard') document.getElementById('hardBtn').classList.add('active');
+    }
+
+    function resetGame() {
+        initBoard();
+        render();
+    }
+
+    // Event listeners
+    initBoard();
+    render();
+
+    document.getElementById('resetBtn').onclick = resetGame;
+    document.getElementById('resetBtn').ontouchstart = function(e) {
+        e.preventDefault();
+        resetGame();
+    };
+    
+    document.getElementById('easyBtn').onclick = () => setDifficulty('easy');
+    document.getElementById('mediumBtn').onclick = () => setDifficulty('medium');
+    document.getElementById('hardBtn').onclick = () => setDifficulty('hard');
+    
+    document.getElementById('easyBtn').ontouchstart = (e) => {
+        e.preventDefault();
+        setDifficulty('easy');
+    };
+    document.getElementById('mediumBtn').ontouchstart = (e) => {
+        e.preventDefault();
+        setDifficulty('medium');
+    };
+    document.getElementById('hardBtn').ontouchstart = (e) => {
+        e.preventDefault();
+        setDifficulty('hard');
+    };
+})();
+</script>
+</body>
+</html>

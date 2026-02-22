@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏓 PRO SPIN TENNIS 3D · SPEED SLIDER</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050a14; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        #ui { position: absolute; width: 100%; top: 20px; text-align: center; color: white; pointer-events: none; z-index: 10; }
+        #score { font-size: clamp(30px, 8vw, 50px); font-weight: 900; letter-spacing: 5px; text-shadow: 0 0 20px #0af; }
+        #score span { background: rgba(0,0,0,0.5); padding: 5px 20px; border-radius: 15px; border: 1px solid #0af; }
+        #msg { margin-top: 15px; background: rgba(0,255,200,0.2); padding: 8px 25px; border-radius: 50px; display: inline-block; 
+               border: 1.5px solid #0fc; color: #0fc; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        
+        /* Speed Slider Panel */
+        #speed-panel { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(10,20,40,0.85); 
+                       backdrop-filter: blur(10px); padding: 15px 30px; border-radius: 60px; border: 2px solid #3af; 
+                       display: flex; gap: 20px; align-items: center; z-index: 30; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,150,255,0.3); }
+        #speed-panel label { color: white; font-size: 18px; font-weight: 600; text-shadow: 0 2px 5px black; }
+        #speed-slider { width: 240px; height: 8px; border-radius: 10px; background: #234; -webkit-appearance: none; appearance: none; }
+        #speed-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; background: #3cf; border-radius: 50%; 
+                                               cursor: pointer; border: 3px solid white; box-shadow: 0 0 15px #0af; }
+        #speed-value { color: #ffdd44; font-weight: bold; font-size: 22px; min-width: 55px; text-align: center; text-shadow: 0 0 8px #fc0; }
+
+        #controls-hint { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #9bd; font-size: 15px; pointer-events: none; text-shadow: 0 2px 5px black; }
+        #touch-surface { position: absolute; width: 100%; height: 100%; z-index: 5; cursor: crosshair; }
+        @media (max-width: 600px) {
+            #speed-panel { padding: 12px 20px; gap: 12px; bottom: 90px; }
+            #speed-slider { width: 150px; }
+            #speed-value { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="score"><span><span id="ps">0</span> : <span id="as">0</span></span></div>
+        <div id="msg">TAP TO SERVE • SWIPE FOR SPIN</div>
+    </div>
+
+    <!-- SPEED SLIDER (interactive) -->
+    <div id="speed-panel">
+        <label>⚡ BALL SPEED</label>
+        <input type="range" id="speed-slider" min="0.4" max="2.5" step="0.05" value="1.0">
+        <span id="speed-value">1.00x</span>
+    </div>
+
+    <div id="controls-hint">DRAG TO MOVE • SWIPE DURING HIT TO CURVE THE BALL</div>
+    <div id="touch-surface"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        (function() {
+            // --- SCENE SETUP ---
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050810);
+            
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(3.5, 3.2, 5);
+            camera.lookAt(0, 0.2, 0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // --- LIGHTING ---
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            mainLight.position.set(5, 10, 5);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            scene.add(new THREE.AmbientLight(0x404050, 0.8));
+
+            // --- OBJECTS ---
+            // Table
+            const table = new THREE.Mesh(
+                new THREE.BoxGeometry(3.2, 0.1, 2),
+                new THREE.MeshStandardMaterial({ color: 0x113355, roughness: 0.2 })
+            );
+            table.receiveShadow = true;
+            scene.add(table);
+
+            // Net
+            const net = new THREE.Mesh(
+                new THREE.BoxGeometry(0.02, 0.25, 2),
+                new THREE.MeshStandardMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.4 })
+            );
+            net.position.y = 0.15;
+            scene.add(net);
+
+            // Paddles
+            const createPaddle = (color) => {
+                const group = new THREE.Group();
+                const blade = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.2, 0.2, 0.04, 32),
+                    new THREE.MeshStandardMaterial({ color: color })
+                );
+                blade.rotation.x = Math.PI/2;
+                group.add(blade);
+                group.castShadow = true;
+                return group;
+            };
+            const pPaddle = createPaddle(0xff3344);
+            const aPaddle = createPaddle(0x3388ff);
+            scene.add(pPaddle, aPaddle);
+
+            // Ball
+            const ball = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 24, 24),
+                new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5 })
+            );
+            ball.castShadow = true;
+            scene.add(ball);
+
+            // Trail
+            const trailMax = 20;
+            const trailPoints = [];
+            const trailGeo = new THREE.BufferGeometry();
+            const trailMat = new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.6 });
+            const trailLine = new THREE.Line(trailGeo, trailMat);
+            scene.add(trailLine);
+
+            // --- GAME STATE ---
+            let ballVel = new THREE.Vector3();
+            let active = false;
+            let pScore = 0, aScore = 0;
+            let targetZ = 0;
+            let lastPaddleZ = 0;
+            let ballSpinZ = 0; // Magnus Factor
+
+            // --- SPEED MULTIPLIER ---
+            let speedFactor = 1.0;
+            const baseSpeedX = 0.1;
+            const baseSpeedY = 0.03;
+            const baseSpinFactor = 8; // for paddle speed to spin
+
+            // UI Elements
+            const playerSpan = document.getElementById('ps');
+            const aiSpan = document.getElementById('as');
+            const msgDiv = document.getElementById('msg');
+            const speedSlider = document.getElementById('speed-slider');
+            const speedValue = document.getElementById('speed-value');
+
+            speedSlider.addEventListener('input', (e) => {
+                speedFactor = parseFloat(e.target.value);
+                speedValue.innerText = speedFactor.toFixed(2) + 'x';
+            });
+
+            // --- INPUT HANDLING ---
+            const surface = document.getElementById('touch-surface');
+            const updateZ = (y) => {
+                const norm = (y / window.innerHeight) * 2 - 1;
+                targetZ = Math.max(-0.9, Math.min(0.9, norm * 1.5));
+            };
+
+            surface.addEventListener('pointermove', (e) => updateZ(e.clientY));
+            surface.addEventListener('pointerdown', (e) => {
+                updateZ(e.clientY);
+                if (!active) {
+                    active = true;
+                    // Apply speedFactor to initial serve
+                    ballVel.set(
+                        baseSpeedX * speedFactor,
+                        baseSpeedY * speedFactor,
+                        (Math.random() - 0.5) * 0.05 * speedFactor
+                    );
+                    ballSpinZ = 0;
+                    msgDiv.style.opacity = 0;
+                }
+            });
+
+            function reset(winner) {
+                if (winner === 'p') pScore++; else aScore++;
+                active = false;
+                ballSpinZ = 0;
+                playerSpan.innerText = pScore;
+                aiSpan.innerText = aScore;
+                msgDiv.style.opacity = 1;
+                trailGeo.setFromPoints([]);
+            }
+
+            // --- CORE LOOP ---
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Paddle Physics
+                const pSpeed = targetZ - pPaddle.position.z;
+                pPaddle.position.z += pSpeed * 0.2;
+                pPaddle.position.x = -1.5;
+                pPaddle.position.y = 0.2;
+
+                // AI Logic
+                if (ballVel.x > 0) {
+                    aPaddle.position.z += (ball.position.z - aPaddle.position.z) * 0.12;
+                } else {
+                    aPaddle.position.z += (0 - aPaddle.position.z) * 0.05;
+                }
+                aPaddle.position.x = 1.5;
+                aPaddle.position.y = 0.2;
+
+                if (active) {
+                    // 1. Magnus Effect (scaled with speedFactor for consistency)
+                    ballVel.z += ballSpinZ * 0.006 * speedFactor;
+                    
+                    // 2. Movement (gravity also scaled)
+                    ball.position.add(ballVel);
+                    ballVel.y -= 0.0015 * speedFactor; // Gravity
+
+                    // 3. Table Collision
+                    if (ball.position.y < 0.1 && Math.abs(ball.position.x) < 1.6 && Math.abs(ball.position.z) < 1) {
+                        ballVel.y = Math.abs(ballVel.y) * 0.85;
+                        ball.position.y = 0.1;
+                    }
+
+                    // 4. Paddle Collision (Player)
+                    if (ball.position.x < -1.4 && Math.abs(ball.position.z - pPaddle.position.z) < 0.28 && ballVel.x < 0) {
+                        ballVel.x = Math.abs(ballVel.x) * 1.05; // Elasticity
+                        ballVel.z += (ball.position.z - pPaddle.position.z) * 0.3 * speedFactor;
+                        
+                        // CAPTURE SPIN (paddle speed influences spin)
+                        ballSpinZ = pSpeed * baseSpinFactor * speedFactor; 
+                        ball.position.x = -1.39;
+                    }
+
+                    // 5. Paddle Collision (AI)
+                    if (ball.position.x > 1.4 && Math.abs(ball.position.z - aPaddle.position.z) < 0.28 && ballVel.x > 0) {
+                        ballVel.x = -Math.abs(ballVel.x) * 1.05;
+                        ballVel.z += (ball.position.z - aPaddle.position.z) * 0.3 * speedFactor;
+                        ballSpinZ = (Math.random() - 0.5) * 1.5 * speedFactor; // AI Spin
+                        ball.position.x = 1.39;
+                    }
+
+                    // 6. Win/Loss Conditions
+                    if (ball.position.x > 2.2) reset('p');
+                    if (ball.position.x < -2.2) reset('a');
+                    if (ball.position.y < -2) reset(ball.position.x > 0 ? 'p' : 'a');
+
+                    // 7. Trail Rendering
+                    trailPoints.push(ball.position.clone());
+                    if (trailPoints.length > trailMax) trailPoints.shift();
+                    trailGeo.setFromPoints(trailPoints);
+                } else {
+                    ball.position.set(-1.4, 0.25, pPaddle.position.z);
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Handle Screen Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        })();
+    </script>
+</body>
+</html>

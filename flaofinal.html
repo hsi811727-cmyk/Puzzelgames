@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Bird Clone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #1a2e3f, #2c3e50);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-container {
+            width: min(98vw, 400px);
+            background: #34495e;
+            border-radius: 30px;
+            padding: 20px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+        }
+        canvas {
+            width: 100%;
+            aspect-ratio: 3/4;
+            background: #87CEEB;
+            border-radius: 20px;
+            display: block;
+            margin-bottom: 20px;
+            touch-action: none;
+        }
+        .score {
+            text-align: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #b85e0f;
+            transition: 0.05s;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #b85e0f;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="score" id="score">0</div>
+    <canvas id="gameCanvas" width="300" height="400"></canvas>
+    <div class="controls">
+        <button id="flapBtn">🕊️ FLAP</button>
+        <button id="resetBtn">⟲ RESTART</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let bird = { y: 200, vy: 0 };
+    let pipes = [];
+    let score = 0;
+    let gameOver = false;
+    let frame = 0;
+    
+    function reset() {
+        bird = { y: 200, vy: 0 };
+        pipes = [];
+        score = 0;
+        gameOver = false;
+        frame = 0;
+    }
+    
+    function addPipe() {
+        let gap = 120;
+        let topHeight = Math.random() * 200 + 50;
+        pipes.push({
+            x: 300,
+            top: topHeight,
+            bottom: topHeight + gap,
+            passed: false
+        });
+    }
+    
+    function update() {
+        if(gameOver) return;
+        
+        frame++;
+        if(frame % 90 === 0) addPipe();
+        
+        bird.vy += 0.3;
+        bird.y += bird.vy;
+        
+        if(bird.y > 380) {
+            gameOver = true;
+        }
+        if(bird.y < 20) {
+            bird.y = 20;
+            bird.vy = 0;
+        }
+        
+        for(let i = pipes.length-1; i >= 0; i--) {
+            pipes[i].x -= 2;
+            
+            if(pipes[i].x < -50) {
+                pipes.splice(i,1);
+                continue;
+            }
+            
+            if(!pipes[i].passed && pipes[i].x < 50) {
+                pipes[i].passed = true;
+                score += 10;
+            }
+            
+            if(pipes[i].x > 20 && pipes[i].x < 80) {
+                if(bird.y < pipes[i].top || bird.y > pipes[i].bottom) {
+                    gameOver = true;
+                }
+            }
+        }
+        
+        document.getElementById('score').textContent = score;
+    }
+    
+    function draw() {
+        ctx.clearRect(0,0,300,400);
+        
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0,0,300,400);
+        
+        ctx.fillStyle = '#228B22';
+        pipes.forEach(pipe => {
+            ctx.fillRect(pipe.x, 0, 40, pipe.top);
+            ctx.fillRect(pipe.x, pipe.bottom, 40, 400-pipe.bottom);
+        });
+        
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(50, bird.y, 15, 0, Math.PI*2);
+        ctx.fill();
+        
+        if(gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0,0,300,400);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', 150, 200);
+            ctx.font = '18px Arial';
+            ctx.fillText(`Score: ${score}`, 150, 250);
+        }
+    }
+    
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    document.getElementById('flapBtn').onclick = () => {
+        if(!gameOver) bird.vy = -5;
+    };
+    document.getElementById('resetBtn').onclick = reset;
+    
+    canvas.onclick = () => {
+        if(!gameOver) bird.vy = -5;
+    };
+    canvas.ontouchstart = (e) => {
+        e.preventDefault();
+        if(!gameOver) bird.vy = -5;
+    };
+    
+    gameLoop();
+    reset();
+})();
+</script>
+</body>
+</html>

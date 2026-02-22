@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minesweeper - Working Final</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            background: #1a2e3f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: min(98vw, 450px);
+            background: #2c3e50;
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 1.5rem;
+            background: #34495e;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 3px;
+            background: #34495e;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            aspect-ratio: 1;
+            background: #95a5a6;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #2c3e50;
+        }
+        .cell.revealed {
+            background: #ecf0f1;
+        }
+        .cell.mine {
+            background: #e74c3c;
+            color: white;
+        }
+        button {
+            width: 100%;
+            background: #e67e22;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <span>💣 MINESWEEPER</span>
+        <span id="mineCount">10</span>
+    </div>
+    <div class="board" id="board"></div>
+    <button id="reset">⟲ NEW GAME</button>
+</div>
+
+<script>
+(function() {
+    const rows = 8;
+    const cols = 8;
+    const totalMines = 10;
+    
+    let board = [];
+    let revealed = [];
+    let gameOver = false;
+    let gameWon = false;
+    
+    function init() {
+        board = [];
+        revealed = [];
+        gameOver = false;
+        gameWon = false;
+        
+        // Initialize empty board
+        for(let r=0; r<rows; r++) {
+            board[r] = [];
+            revealed[r] = [];
+            for(let c=0; c<cols; c++) {
+                board[r][c] = 0;
+                revealed[r][c] = false;
+            }
+        }
+        
+        // Place mines
+        let mines = 0;
+        while(mines < totalMines) {
+            let r = Math.floor(Math.random() * rows);
+            let c = Math.floor(Math.random() * cols);
+            if(board[r][c] !== -1) {
+                board[r][c] = -1;
+                mines++;
+            }
+        }
+        
+        // Calculate numbers
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                if(board[r][c] === -1) continue;
+                let count = 0;
+                for(let dr=-1; dr<=1; dr++) {
+                    for(let dc=-1; dc<=1; dc++) {
+                        let nr = r+dr, nc = c+dc;
+                        if(nr>=0 && nr<rows && nc>=0 && nc<cols && board[nr][nc] === -1) {
+                            count++;
+                        }
+                    }
+                }
+                board[r][c] = count;
+            }
+        }
+        
+        render();
+        updateMineCount();
+    }
+    
+    function reveal(r, c) {
+        if(gameOver || gameWon || revealed[r][c]) return;
+        
+        revealed[r][c] = true;
+        
+        if(board[r][c] === -1) {
+            gameOver = true;
+            render();
+            return;
+        }
+        
+        if(board[r][c] === 0) {
+            for(let dr=-1; dr<=1; dr++) {
+                for(let dc=-1; dc<=1; dc++) {
+                    let nr = r+dr, nc = c+dc;
+                    if(nr>=0 && nr<rows && nc>=0 && nc<cols && !revealed[nr][nc]) {
+                        reveal(nr, nc);
+                    }
+                }
+            }
+        }
+        
+        checkWin();
+        render();
+    }
+    
+    function checkWin() {
+        let allSafeRevealed = true;
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                if(board[r][c] !== -1 && !revealed[r][c]) {
+                    allSafeRevealed = false;
+                }
+            }
+        }
+        if(allSafeRevealed) {
+            gameWon = true;
+            render();
+        }
+    }
+    
+    function updateMineCount() {
+        document.getElementById('mineCount').textContent = totalMines;
+    }
+    
+    function render() {
+        let boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                let cell = document.createElement('div');
+                cell.className = 'cell';
+                
+                if(revealed[r][c] || gameOver || gameWon) {
+                    cell.classList.add('revealed');
+                    if(board[r][c] === -1) {
+                        cell.classList.add('mine');
+                        cell.textContent = '💣';
+                    } else if(board[r][c] > 0) {
+                        cell.textContent = board[r][c];
+                    }
+                }
+                
+                cell.onclick = () => reveal(r, c);
+                boardEl.appendChild(cell);
+            }
+        }
+    }
+    
+    document.getElementById('reset').onclick = init;
+    init();
+})();
+</script>
+</body>
+</html>

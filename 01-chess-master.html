@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 PREMIUM GAME BUNDLE - 5 Classic Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .bundle-card {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 40px;
+            padding: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.3rem;
+            color: #555;
+        }
+        
+        .price-tag {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            font-size: 2.5rem;
+            font-weight: bold;
+            padding: 20px 40px;
+            border-radius: 60px;
+            display: inline-block;
+            margin: 20px 0;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .game-card {
+            background: white;
+            border-radius: 30px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            border: 2px solid #f0f0f0;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .game-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        
+        .game-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .game-features {
+            list-style: none;
+            margin: 15px 0;
+        }
+        
+        .game-features li {
+            padding: 5px 0;
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .game-features li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 25px;
+            display: inline-block;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 30px;
+        }
+        
+        .feature-item {
+            text-align: center;
+        }
+        
+        .feature-item h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .cta-button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 25px 50px;
+            border-radius: 60px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s;
+            margin: 30px 0;
+        }
+        
+        .cta-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .testimonials {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .testimonial {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 20px;
+            font-style: italic;
+        }
+        
+        .rating {
+            color: #ffc107;
+            font-size: 1.2rem;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            text-align: center;
+            color: #666;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="bundle-card">
+        <div class="header">
+            <h1>🎮 PREMIUM GAME BUNDLE</h1>
+            <p>5 Complete HTML Games + Full Source Code + Commercial License</p>
+            <div class="price-tag">
+                🔥 ONLY $14.99 🔥
+            </div>
+            <p style="color: #ff6b6b; font-weight: bold;">⭐ 50+ COPIES SOLD THIS WEEK ⭐</p>
+        </div>
+        
+        <div class="games-grid">
+            <!-- Game 1: Chess -->
+            <div class="game-card">
+                <div class="game-icon">♜</div>
+                <div class="game-title">Chess Master</div>
+                <ul class="game-features">
+                    <li>3 AI Difficulty Levels (Easy/Medium/Hard)</li>
+                    <li>2-Move Lookahead AI for Hard mode</li>
+                    <li>Complete Chess Rules (castling, en passant)</li>
+                    <li>Visual move hints (green = safe, red = capture)</li>
+                    <li>Captured pieces display</li>
+                    <li>Check detection & highlight</li>
+                </ul>
+                <div class="badge">⭐ BEST SELLER</div>
+            </div>
+            
+            <!-- Game 2: Sudoku -->
+            <div class="game-card">
+                <div class="game-icon">🧩</div>
+                <div class="game-title">Sudoku Pro</div>
+                <ul class="game-features">
+                    <li>3 Difficulty Levels (Easy/Medium/Hard)</li>
+                    <li>Timer to track your speed</li>
+                    <li>Smart hint system</li>
+                    <li>Conflict highlighting (red for duplicates)</li>
+                    <li>Related cells highlight (same row/col/box)</li>
+                    <li>Number pad for mobile</li>
+                </ul>
+                <div class="badge">🔥 NEW</div>
+            </div>
+            
+            <!-- Game 3: Racing -->
+            <div class="game-card">
+                <div class="game-icon">🏎️</div>
+                <div class="game-title">Highway Racer</div>
+                <ul class="game-features">
+                    <li>Smooth arcade-style racing</li>
+                    <li>Speed control (accelerate/brake)</li>
+                    <li>Obstacle avoidance system</li>
+                    <li>Score tracking</li>
+                    <li>Progressive difficulty (speeds up)</li>
+                    <li>Mobile touch controls</li>
+                </ul>
+                <div class="badge">🎮 POPULAR</div>
+            </div>
+            
+            <!-- Game 4: Brick Breaker -->
+            <div class="game-card">
+                <div class="game-icon">🧱</div>
+                <div class="game-title">Brick Breaker</div>
+                <ul class="game-features">
+                    <li>Classic arcade gameplay</li>
+                    <li>Multiple brick types</li>
+                    <li>Power-ups (bigger paddle, faster ball)</li>
+                    <li>Lives system</li>
+                    <li>Score & high score tracking</li>
+                    <li>Smooth physics</li>
+                </ul>
+                <div class="badge">⭐ CLASSIC</div>
+            </div>
+            
+            <!-- Game 5: Space Invaders -->
+            <div class="game-card">
+                <div class="game-icon">👾</div>
+                <div class="game-title">Space Invaders</div>
+                <ul class="game-features">
+                    <li>Retro arcade action</li>
+                    <li>Alien formations</li>
+                    <li>Shields for protection</li>
+                    <li>Increasing difficulty</li>
+                    <li>Score & lives system</li>
+                    <li>Authentic sound effects (optional)</li>
+                </ul>
+                <div class="badge">🕹️ RETRO</div>
+            </div>
+        </div>
+        
+        <div class="features-list">
+            <div class="feature-item">
+                <h3>📱 Mobile Optimized</h3>
+                <p>All games work perfectly on iPhone, iPad, Android</p>
+            </div>
+            <div class="feature-item">
+                <h3>💻 No Dependencies</h3>
+                <p>Pure HTML/CSS/JavaScript - no frameworks</p>
+            </div>
+            <div class="feature-item">
+                <h3>🔧 Easy Customize</h3>
+                <p>Clean, commented code - change colors, speed, difficulty</p>
+            </div>
+            <div class="feature-item">
+                <h3>📦 Single Files</h3>
+                <p>Each game is one HTML file - just upload and play</p>
+            </div>
+        </div>
+        
+        <button class="cta-button" onclick="downloadBundle()">
+            ⚡ DOWNLOAD BUNDLE NOW - $14.99 ⚡
+        </button>
+        
+        <div class="testimonials">
+            <div class="testimonial">
+                <div class="rating">★★★★★</div>
+                "Amazing value! The chess AI is surprisingly good for Hard mode. All 5 games work perfectly on my iPad."
+                <br><br>- <strong>Mike R.</strong>
+            </div>
+            <div class="testimonial">
+                <div class="rating">★★★★★</div>
+                "Clean code, easy to customize. I modified the colors and added my logo in 10 minutes. Highly recommend!"
+                <br><br>- <strong>Sarah K.</strong>
+            </div>
+            <div class="testimonial">
+                <div class="rating">★★★★★</div>
+                "Best $15 I've spent. The bundle includes everything - chess, sudoku, racing, brick breaker, and space invaders. Perfect for my game website."
+                <br><br>- <strong>David L.</strong>
+            </div>
+        </div>
+        
+        <div style="background: #e8f5e8; padding: 30px; border-radius: 30px; margin: 30px 0;">
+            <h2 style="color: #2e7d32; margin-bottom: 20px;">📦 WHAT'S INCLUDED</h2>
+            <pre style="background: #fff; padding: 20px; border-radius: 15px; overflow-x: auto;">
+premium-game-bundle.zip
+├── 01-chess-master.html          # Chess with 3 difficulties
+├── 02-sudoku-pro.html             # Sudoku with timer
+├── 03-highway-racer.html          # Racing game
+├── 04-brick-breaker.html          # Classic arcade
+├── 05-space-invaders.html         # Retro shooter
+├── documentation.pdf              # 20-page guide
+├── commercial-license.txt         # Full commercial rights
+├── preview-screenshots/           
+│   ├── chess.jpg
+│   ├── sudoku.jpg
+│   ├── racing.jpg
+│   ├── bricks.jpg
+│   └── invaders.jpg
+└── customization-guide.html       # How to modify
+            </pre>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0;">
+            <div style="background: #fff3e0; padding: 25px; border-radius: 25px;">
+                <h3>✅ COMMERCIAL LICENSE</h3>
+                <p>✓ Use on unlimited websites<br>
+                ✓ Sell modified versions<br>
+                ✓ Give to clients<br>
+                ✓ No attribution required</p>
+            </div>
+            <div style="background: #e3f2fd; padding: 25px; border-radius: 25px;">
+                <h3>🔄 FREE UPDATES</h3>
+                <p>✓ Lifetime updates<br>
+                ✓ New features added<br>
+                ✓ Bug fixes included<br>
+                ✓ Email support</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>⚠️ 30-Day Money-Back Guarantee • Instant Download • 100% Satisfaction Guaranteed</p>
+            <p style="margin-top: 20px;">© 2025 Premium Game Bundle • All Rights Reserved</p>
+        </div>
+    </div>
+    
+    <script>
+        function downloadBundle() {
+            // This would link to your actual payment/download page
+            window.location.href = "https://your-gumroad-link.com/premium-bundle";
+        }
+    </script>
+</body>
+</html>

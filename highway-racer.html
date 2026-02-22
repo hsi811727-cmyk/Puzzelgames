@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏎️ Highway Racer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        body {
+            background: #1a2e3f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: min(98vw, 400px);
+            background: #2c3e50;
+            border-radius: 30px;
+            padding: 16px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            margin-bottom: 16px;
+            background: #1e2b38;
+            padding: 12px;
+            border-radius: 40px;
+        }
+        canvas {
+            width: 100%;
+            aspect-ratio: 3/4;
+            background: #2c3e50;
+            border-radius: 20px;
+            display: block;
+            margin-bottom: 16px;
+            touch-action: none;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 15px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .score {
+            color: white;
+            text-align: center;
+            font-size: 1.3rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="header">
+        <span>🏁 HIGHWAY RACER</span>
+        <span id="score">Score: 0</span>
+    </div>
+    <canvas id="gameCanvas" width="300" height="400"></canvas>
+    <div class="controls">
+        <button id="leftBtn">← LEFT</button>
+        <button id="rightBtn">RIGHT →</button>
+    </div>
+    <button id="restartBtn">⟲ RESTART</button>
+</div>
+<script>
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let player = { x: 150, y: 350, width: 30, height: 40 };
+    let obstacles = [];
+    let score = 0;
+    let gameOver = false;
+    let speed = 3;
+    let frameCount = 0;
+    
+    function reset() {
+        player.x = 150;
+        obstacles = [];
+        score = 0;
+        gameOver = false;
+        speed = 3;
+        frameCount = 0;
+    }
+    
+    function spawnObstacle() {
+        let x = 60 + Math.floor(Math.random() * 5) * 45;
+        obstacles.push({ x: x, y: -40, width: 30, height: 40 });
+    }
+    
+    function update() {
+        if(gameOver) return;
+        
+        frameCount++;
+        if(frameCount % 40 === 0) spawnObstacle();
+        
+        for(let i=obstacles.length-1; i>=0; i--) {
+            obstacles[i].y += speed;
+            if(obstacles[i].y > 400) {
+                obstacles.splice(i,1);
+                score += 10;
+            }
+        }
+        
+        for(let obs of obstacles) {
+            if(player.x < obs.x + obs.width &&
+               player.x + player.width > obs.x &&
+               player.y < obs.y + obs.height &&
+               player.y + player.height > obs.y) {
+                gameOver = true;
+            }
+        }
+        
+        document.getElementById('score').innerText = `Score: ${score}`;
+    }
+    
+    function draw() {
+        ctx.clearRect(0,0,300,400);
+        
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(0,0,300,400);
+        
+        for(let i=0; i<3; i++) {
+            ctx.strokeStyle = '#f1c40f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(100 + i*50, 0);
+            ctx.lineTo(100 + i*50, 400);
+            ctx.stroke();
+        }
+        
+        ctx.fillStyle = '#3498db';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        
+        ctx.fillStyle = '#e74c3c';
+        for(let obs of obstacles) {
+            ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        }
+        
+        if(gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0,0,300,400);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', 150, 200);
+            ctx.font = '18px Arial';
+            ctx.fillText(`Score: ${score}`, 150, 250);
+        }
+    }
+    
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    document.getElementById('leftBtn').onclick = () => { if(!gameOver && player.x > 60) player.x -= 45; };
+    document.getElementById('rightBtn').onclick = () => { if(!gameOver && player.x < 210) player.x += 45; };
+    document.getElementById('restartBtn').onclick = reset;
+    
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        let x = (touch.clientX - rect.left) * (300/rect.width);
+        if(x < 150 && player.x > 60) player.x -= 45;
+        if(x > 150 && player.x < 210) player.x += 45;
+    });
+    
+    gameLoop();
+    reset();
+})();
+</script>
+</body>
+</html>
